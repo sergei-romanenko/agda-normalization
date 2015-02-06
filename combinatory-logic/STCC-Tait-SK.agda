@@ -147,11 +147,11 @@ module NaiveNorm where
 
   {-# TERMINATING #-}
 
-  _⟨∙⟩_ : ∀ {α β} (u : Nf (α ⇒ β)) (w : Nf α) → Nf β
-  K0 ⟨∙⟩ w = K1 w
-  K1 u ⟨∙⟩ w = u
-  S0 ⟨∙⟩ w = S1 w
-  S1 u ⟨∙⟩ w = S2 u w
+  _⟨∙⟩_ : ∀ {α β} (u : Nf (α ⇒ β)) (v : Nf α) → Nf β
+  K0 ⟨∙⟩ v = K1 v
+  K1 u ⟨∙⟩ v = u
+  S0 ⟨∙⟩ u = S1 u
+  S1 u ⟨∙⟩ v = S2 u v
   S2 u v ⟨∙⟩ w = (u ⟨∙⟩ w) ⟨∙⟩ (v ⟨∙⟩ w)
 
   ⟦_⟧ : ∀ {α} (x : Tm α) → Nf α
@@ -175,15 +175,15 @@ module NaiveNorm where
 
 infix 4 _⇓_ _⟨∙⟩_⇓_
 
-data _⟨∙⟩_⇓_ : ∀ {α β} (x : Nf (α ⇒ β)) (y : Nf α) (u : Nf β) → Set where
-  K0⇓ : ∀ {α β w} →
-    K0 {α} {β} ⟨∙⟩ w ⇓ K1 w
-  K1⇓ : ∀ {α β u w} →
-    K1 {α} {β} u ⟨∙⟩ w ⇓ u
-  S0⇓ : ∀ {α β γ w} →
-    S0 {α} {β} {γ} ⟨∙⟩ w ⇓ S1 w
-  S1⇓ : ∀ {α β γ u w} →
-    S1 {α} {β} {γ} u ⟨∙⟩ w ⇓ S2 u w
+data _⟨∙⟩_⇓_ : ∀ {α β} (u : Nf (α ⇒ β)) (v : Nf α) (w : Nf β) → Set where
+  K0⇓ : ∀ {α β u} →
+    K0 {α} {β} ⟨∙⟩ u ⇓ K1 u
+  K1⇓ : ∀ {α β u v} →
+    K1 {α} {β} u ⟨∙⟩ v ⇓ u
+  S0⇓ : ∀ {α β γ u} →
+    S0 {α} {β} {γ} ⟨∙⟩ u ⇓ S1 u
+  S1⇓ : ∀ {α β γ u v} →
+    S1 {α} {β} {γ} u ⟨∙⟩ v ⇓ S2 u v
   S2⇓ : ∀ {α β γ u v w w′ w′′ w′′′}
     (p : u ⟨∙⟩ w ⇓ w′) (q : v ⟨∙⟩ w ⇓ w′′) (r : w′ ⟨∙⟩ w′′ ⇓ w′′′) →
     S2 {α} {β} {γ} u v ⟨∙⟩ w ⇓ w′′′
