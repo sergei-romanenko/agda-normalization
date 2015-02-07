@@ -24,7 +24,7 @@
 -}
 
 
-module STCC-Tait-System-T where
+module STCC-Tait-SystemT where
 
 open import Data.Empty
 open import Data.Unit
