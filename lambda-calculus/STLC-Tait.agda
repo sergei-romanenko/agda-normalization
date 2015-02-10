@@ -338,7 +338,7 @@ mutual
 
 
   data ⟦_⟧*_⇓_ : ∀ {Σ Δ Γ} → Σ ⇉ Δ → Env Δ Γ → Env Σ Γ → Set where
-    ι⇓ : ∀ {Γ} {ρ : Env Γ Γ} →
+    ι⇓ : ∀ {Σ Γ} {ρ : Env Σ Γ} →
       ⟦ ı ⟧* ρ ⇓ ρ
     ⊙⇓ : ∀ {Σ Δ Δ′ Γ} {σ : Σ ⇉ Δ′} {σ′ : Δ′ ⇉ Δ} {ρ : Env Δ Γ} {ρ′ ρ′′}
       (p : ⟦ σ′ ⟧* ρ ⇓ ρ′) (q : ⟦ σ ⟧* ρ′ ⇓ ρ′′) →
@@ -382,3 +382,93 @@ data Norm_⇓_ : ∀ {α Γ} → Tm Γ α → Nf Γ α → Set where
 norm-III⇓ : Norm III ⇓ lam (ne (var vz))
 norm-III⇓ = norm⇓ (∙⇓ ƛ⇓ (∙⇓ ƛ⇓ ƛ⇓ (lam⇓ ø⇓)) (lam⇓ ø⇓))
                    (⇒⇓ (lam⇓ ø⇓) (⋆⇓ (var vz) var⇓))
+
+--
+-- "Strong computability".
+--
+
+SCV : ∀ {α Γ} (u : Val Γ α) → Set
+SCV {⋆} u = ⊤
+SCV {α ⇒ β} u = ∀ v → SCV v → ∃ λ w → u ⟨∙⟩ v ⇓ w × SCV w
+
+SCE : ∀ {Δ Γ} (ρ : Env Δ Γ) → Set
+SCE [] = ⊤
+SCE (u ∷ ρ) = SCV u × SCE ρ
+
+SCS : ∀ {Σ Δ Γ} (σ : Σ ⇉ Δ) (ρ : Env Δ Γ) → Set
+SCS σ ρ = ∃ λ ρ′ → ⟦ σ ⟧* ρ ⇓ ρ′ × SCE ρ′
+
+SC : ∀ {α Δ Γ} (t : Tm Δ α) (ρ : Env Δ Γ) → Set
+SC t ρ = ∃ λ u → ⟦ t ⟧ ρ ⇓ u × SCV u
+
+--
+-- All values are strongly computable!
+--    ∀ {α} (u : Nf α) → SCV u
+--
+
+{-# TERMINATING #-}
+mutual
+
+  -- (t : Tm (α ∷ Δ) β) (ρ : Env Δ Γ) → SCV (lam t ρ)
+
+  all-scv-lam : ∀ {α β Δ Γ} (t : Tm (α ∷ Δ) β) (ρ : Env Δ Γ) → SCV (lam t ρ)
+  all-scv-lam t ρ u p =
+    let v , v⇓ , q = all-sc t (u ∷ ρ)
+    in v , lam⇓ v⇓ , q
+
+  -- (n :Ne Val Γ α) → SCV (ne n)
+
+  all-scv-ne : ∀ {α Γ} (n : Ne Val Γ α) → SCV (ne n)
+  all-scv-ne {⋆} n = tt
+  all-scv-ne {α ⇒ β} n u p =
+    ne (app n u) , ne⇓ , all-scv-ne {β} (app n u)
+
+  -- (u : Val Γ α) → SCV u
+
+  all-scv : ∀ {α Γ} (u : Val Γ α) → SCV u
+  all-scv (lam t ρ) =
+    all-scv-lam t ρ
+  all-scv (ne n) =
+    all-scv-ne n
+
+  -- (ρ : Env Δ Γ) → SCE
+
+  all-sce : ∀ {Δ Γ} (ρ : Env Δ Γ) → SCE ρ
+  all-sce [] = tt
+  all-sce (u ∷ ρ) = all-scv u , all-sce ρ
+
+  -- (σ : Σ ⇉ Δ) (ρ : Env Δ Γ) → SC (t [ σ ]) ρ
+
+  all-scs : ∀ {Σ Δ Γ} (σ : Σ ⇉ Δ) (ρ : Env Δ Γ) → SCS σ ρ
+  all-scs ı ρ =
+    ρ , ι⇓ , all-sce ρ
+  all-scs (σ ⊙ σ′) ρ =
+    let ρ′ , ⇓ρ′ , p = all-scs σ′ ρ
+        ρ′′ , ⇓ρ′′ , q = all-scs σ ρ′
+    in ρ′′ , ⊙⇓ ⇓ρ′ ⇓ρ′′ , q
+  all-scs (t ∷ σ) ρ =
+    let
+      u , u⇓ , p = all-sc t ρ
+      ρ′ , ρ′⇓ , q = all-scs σ ρ
+    in u ∷ ρ′ , ∷⇓ u⇓ ρ′⇓ , p , q
+  all-scs ↑ (u ∷ ρ) =
+    ρ , ↑⇓ , all-sce ρ
+
+  -- ∀ {α Δ Γ} (t : Tm Δ α) (ρ : Env Δ Γ) → SC t ρ
+
+  all-sc : ∀ {α Δ Γ} (t : Tm Δ α) (ρ : Env Δ Γ) → SC t ρ
+  all-sc ø (u ∷ ρ) =
+    u , ø⇓ , all-scv u
+  all-sc (t ∙ t′) ρ =
+    let
+      u , u⇓ , p = all-sc t ρ
+      v , v⇓ , q = all-sc t′ ρ
+      w , w⇓ , r = all-scv u v q --This call doesn't pass the termination check.
+    in w , ∙⇓ u⇓ v⇓ w⇓ , r
+  all-sc (ƛ t) ρ =
+    lam t ρ , ƛ⇓ , all-scv-lam t ρ
+  all-sc (t [ σ ]) ρ =
+     let
+       ρ′ , ⇓ρ′ , p = all-scs σ ρ
+       u , ⇓u , q = all-sc t ρ′
+     in u , []⇓ ⇓ρ′ ⇓u , q
