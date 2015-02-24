@@ -21,10 +21,12 @@
 
 module STLC-Tait where
 
-open import Data.List
+open import Data.List as List
   hiding ([_])
 open import Data.List.Any
   using (Any; here; there; module Membership-≡)
+open import Data.List.Properties
+  using ()
 open import Data.Empty
 open import Data.Unit
 open import Data.Product
@@ -41,6 +43,12 @@ open import Relation.Binary
 import Relation.Binary.EqReasoning as EqReasoning
 
 open Membership-≡
+
+open import Algebra
+  using (module Monoid)
+private
+  module LM {a} {A : Set a} = Monoid (List.monoid A)
+
 
 --
 -- Types.
@@ -383,92 +391,202 @@ norm-III⇓ : Norm III ⇓ lam (ne (var vz))
 norm-III⇓ = norm⇓ (∙⇓ ƛ⇓ (∙⇓ ƛ⇓ ƛ⇓ (lam⇓ ø⇓)) (lam⇓ ø⇓))
                    (⇒⇓ (lam⇓ ø⇓) (⋆⇓ (var vz) var⇓))
 
+
+module StrongComputability-Bad where
+
+  --
+  -- "Strong computability". (A failed attempt.)
+  --
+
+  SCV : ∀ {α Γ} (u : Val Γ α) → Set
+  SCV {⋆} u = ⊤
+  SCV {α ⇒ β} u = ∀ v → SCV v → ∃ λ w → u ⟨∙⟩ v ⇓ w × SCV w
+
+  SCE : ∀ {Δ Γ} (ρ : Env Δ Γ) → Set
+  SCE [] = ⊤
+  SCE (u ∷ ρ) = SCV u × SCE ρ
+
+  SCS : ∀ {Σ Δ Γ} (σ : Σ ⇉ Δ) (ρ : Env Δ Γ) → Set
+  SCS σ ρ = ∃ λ ρ′ → ⟦ σ ⟧* ρ ⇓ ρ′ × SCE ρ′
+
+  SC : ∀ {α Δ Γ} (t : Tm Δ α) (ρ : Env Δ Γ) → Set
+  SC t ρ = ∃ λ u → ⟦ t ⟧ ρ ⇓ u × SCV u
+
+  --
+  -- All values are strongly computable!
+  --    ∀ {α} (u : Nf α) → SCV u
+  --
+
+  {-# TERMINATING #-}
+  mutual
+
+    -- (t : Tm (α ∷ Δ) β) (ρ : Env Δ Γ) → SCV (lam t ρ)
+
+    all-scv-lam : ∀ {α β Δ Γ} (t : Tm (α ∷ Δ) β) (ρ : Env Δ Γ) → SCV (lam t ρ)
+    all-scv-lam t ρ u p =
+      let v , v⇓ , q = all-sc t (u ∷ ρ)
+      in v , lam⇓ v⇓ , q
+
+    -- (n :Ne Val Γ α) → SCV (ne n)
+
+    all-scv-ne : ∀ {α Γ} (n : Ne Val Γ α) → SCV (ne n)
+    all-scv-ne {⋆} n = tt
+    all-scv-ne {α ⇒ β} n u p =
+      ne (app n u) , ne⇓ , all-scv-ne {β} (app n u)
+
+    -- (u : Val Γ α) → SCV u
+
+    all-scv : ∀ {α Γ} (u : Val Γ α) → SCV u
+    all-scv (lam t ρ) =
+      all-scv-lam t ρ
+    all-scv (ne n) =
+      all-scv-ne n
+
+    -- (ρ : Env Δ Γ) → SCE
+
+    all-sce : ∀ {Δ Γ} (ρ : Env Δ Γ) → SCE ρ
+    all-sce [] = tt
+    all-sce (u ∷ ρ) = all-scv u , all-sce ρ
+
+    -- (σ : Σ ⇉ Δ) (ρ : Env Δ Γ) → SC (t [ σ ]) ρ
+
+    all-scs : ∀ {Σ Δ Γ} (σ : Σ ⇉ Δ) (ρ : Env Δ Γ) → SCS σ ρ
+    all-scs ı ρ =
+      ρ , ι⇓ , all-sce ρ
+    all-scs (σ ⊙ σ′) ρ =
+      let ρ′ , ⇓ρ′ , p = all-scs σ′ ρ
+          ρ′′ , ⇓ρ′′ , q = all-scs σ ρ′
+      in ρ′′ , ⊙⇓ ⇓ρ′ ⇓ρ′′ , q
+    all-scs (t ∷ σ) ρ =
+      let
+        u , u⇓ , p = all-sc t ρ
+        ρ′ , ρ′⇓ , q = all-scs σ ρ
+      in u ∷ ρ′ , ∷⇓ u⇓ ρ′⇓ , p , q
+    all-scs ↑ (u ∷ ρ) =
+      ρ , ↑⇓ , all-sce ρ
+
+    -- ∀ {α Δ Γ} (t : Tm Δ α) (ρ : Env Δ Γ) → SC t ρ
+
+    all-sc : ∀ {α Δ Γ} (t : Tm Δ α) (ρ : Env Δ Γ) → SC t ρ
+    all-sc ø (u ∷ ρ) =
+      u , ø⇓ , all-scv u
+    all-sc (t ∙ t′) ρ =
+      let
+        u , u⇓ , p = all-sc t ρ
+        v , v⇓ , q = all-sc t′ ρ
+        -- ***This call doesn't pass the termination check.***
+        w , w⇓ , r = all-scv u v q
+      in w , ∙⇓ u⇓ v⇓ w⇓ , r
+    all-sc (ƛ t) ρ =
+      lam t ρ , ƛ⇓ , all-scv-lam t ρ
+    all-sc (t [ σ ]) ρ =
+       let
+         ρ′ , ⇓ρ′ , p = all-scs σ ρ
+         u , ⇓u , q = all-sc t ρ′
+       in u , []⇓ ⇓ρ′ ⇓u , q
+
 --
--- "Strong computability".
+-- Convertibility.
+--
+
+infix 4 _≃_
+
+data _≃_  : ∀ {α Γ} (x y : Tm Γ α) → Set where
+  ≃refl  : ∀ {α Γ} {x : Tm Γ α} →
+             x ≃ x
+  ≃sym   : ∀ {α Γ} {x y : Tm Γ α} →
+             x ≃ y → y ≃ x
+  ≅trans : ∀ {α Γ} {x y z : Tm Γ α} →
+             x ≃ y → y ≃ z → x ≃ z
+
+--
+-- "Strong computability". (A failed attempt.)
 --
 
 SCV : ∀ {α Γ} (u : Val Γ α) → Set
-SCV {⋆} u = ⊤
-SCV {α ⇒ β} u = ∀ v → SCV v → ∃ λ w → u ⟨∙⟩ v ⇓ w × SCV w
+--SCV {⋆} u = {!!} 
+SCV {⋆} (ne n) = ∃ λ m →
+  QNe n ⇓ m
+  × ne-val⌈ n ⌉ ≃ ne-nf⌈ m ⌉ 
+SCV {α ⇒ β} {Γ} u = ∀ Δ v → SCV v →
+  ∃ λ w → wk-val* Δ u ⟨∙⟩ v ⇓ w
+    × val⌈ wk-val* Δ u ⌉ ∙ val⌈ v ⌉ ≃ val⌈ w ⌉
+    × SCV w
 
 SCE : ∀ {Δ Γ} (ρ : Env Δ Γ) → Set
 SCE [] = ⊤
 SCE (u ∷ ρ) = SCV u × SCE ρ
 
-SCS : ∀ {Σ Δ Γ} (σ : Σ ⇉ Δ) (ρ : Env Δ Γ) → Set
-SCS σ ρ = ∃ λ ρ′ → ⟦ σ ⟧* ρ ⇓ ρ′ × SCE ρ′
+infix 6 _/∷/_
+infix 5 _/Val/_
 
-SC : ∀ {α Δ Γ} (t : Tm Δ α) (ρ : Env Δ Γ) → Set
-SC t ρ = ∃ λ u → ⟦ t ⟧ ρ ⇓ u × SCV u
+-- A shortcut for `cong (_∷_ α) Γ₁≡Γ₂`.
 
---
--- All values are strongly computable!
---    ∀ {α} (u : Nf α) → SCV u
---
+_/∷/_ : {Γ₁ Γ₂ : Ctx} (α : Ty) (p : Γ₁ ≡ Γ₂) →
+  _≡_ {A = Ctx} (α ∷ Γ₁) (α ∷ Γ₂)
+α /∷/ refl = refl
 
-{-# TERMINATING #-}
+-- A shortcut for `subst (flip Val α) Γ₁≡Γ₂ u`.
+
+_/Val/_ : ∀ {Γ₁ Γ₂ α} → Γ₁ ≡ Γ₂ → Val Γ₁ α → Val Γ₂ α
+refl /Val/ u = u
+
+/Val/∘wk-val : ∀ {Γ₁ Γ₂ α τ} (p : Γ₁ ≡ Γ₂) (u : Val Γ₁ τ) →
+  (α /∷/ p) /Val/ wk-val u ≡ wk-val (p /Val/ u)
+/Val/∘wk-val refl v = refl
+
+/∷/≡cong : ∀ {Γ₁ Γ₂} α (p : Γ₁ ≡ Γ₂) → α /∷/ p ≡ cong (_∷_ α) p
+/∷/≡cong α refl = refl
+
+--wk-env* : ∀ {Δ} Σ {Γ} (ρ : Env Δ Γ) → Env Δ (Σ ++ Γ)
+wk-env*[] : ∀ Σ {Γ} → wk-env* Σ {Γ} [] ≡ []
+wk-env*[] [] = refl
+wk-env*[] (γ ∷ Σ) =
+  cong wk-env (wk-env*[] Σ)
+
+wk-env*∷ : ∀ {α Δ} Σ {Γ} (u : Val Γ α) (ρ : Env Δ Γ) →
+  wk-env* Σ (u ∷ ρ) ≡ wk-val* Σ u ∷ wk-env* Σ ρ
+wk-env*∷ [] u ρ = refl
+wk-env*∷ (γ ∷ Σ) u ρ rewrite wk-env*∷ Σ u ρ = refl
+
+wk-val*++ : ∀ {α} Δ Γ Σ u →
+  wk-val* Δ (wk-val* Γ u) ≡
+    LM.assoc Δ Γ Σ /Val/ wk-val* {α} (Δ ++ Γ) {Σ} u
+wk-val*++ [] Γ Σ u = refl
+wk-val*++ {α} (γ ∷ Δ) Γ Σ u rewrite wk-val*++ Δ Γ Σ u = begin
+  wk-val (LM.assoc Δ Γ Σ /Val/ wk-val* (Δ ++ Γ) u)
+    ≡⟨ sym $ /Val/∘wk-val (LM.assoc Δ Γ Σ) (wk-val* (Δ ++ Γ) u) ⟩
+  (γ /∷/ LM.assoc Δ Γ Σ) /Val/ wk-val (wk-val* (Δ ++ Γ) u)
+    ≡⟨ cong₂ _/Val/_ (/∷/≡cong γ (LM.assoc Δ Γ Σ)) refl ⟩
+  cong (_∷_ γ) (LM.assoc Δ Γ Σ) /Val/ wk-val (wk-val* (Δ ++ Γ) u)
+  ∎
+  where open ≡-Reasoning
+
+
 mutual
 
-  -- (t : Tm (α ∷ Δ) β) (ρ : Env Δ Γ) → SCV (lam t ρ)
+  postulate
+    wk-scv : ∀ {α Γ} (u : Val Γ α) → SCV u → ∀ Δ → SCV (wk-val* Δ u)
+  {-
+  wk-scv : ∀ {α Γ} (u : Val Γ α) → SCV u → ∀ Δ → SCV (wk-val* Δ u)
+  wk-scv {⋆} u p Δ = tt
+  --wk-scv {α ⇒ β} {Γ} u p Δ Σ v q = {!!}
+  wk-scv {α ⇒ β} {Γ} u p Δ Σ v q =
+    --p {!!} v q
+    let v′ : Val ((Σ ++ Δ) ++ Γ) α
+        v′ = (sym $ LM.assoc Σ Δ Γ) /Val/ v
+        q′ : SCV {α} {(Σ ++ Δ) ++ Γ} v′
+        q′ = subst (λ z → SCV {α} {z} {!!}) (sym $ LM.assoc Σ Δ Γ) q
+        --q′ = subst (λ z → SCV {α} {{!!}} {!v′!}) (sym $ LM.assoc Σ Δ Γ) q
+        r : ∃ λ w → wk-val* {!Σ ++ Δ!} u ⟨∙⟩ v ⇓ w × SCV w
+        r = p {!Σ ++ Δ!} v′ q′
+        s : SCV (wk-val* (Σ ++ Δ) ((sym $ LM.assoc Σ Δ Γ) /Val/ v))
+        s = wk-scv {α} {(Σ ++ Δ) ++ Γ} v′ q′ (Σ ++ Δ)
+    in {!!}
+  -}
 
-  all-scv-lam : ∀ {α β Δ Γ} (t : Tm (α ∷ Δ) β) (ρ : Env Δ Γ) → SCV (lam t ρ)
-  all-scv-lam t ρ u p =
-    let v , v⇓ , q = all-sc t (u ∷ ρ)
-    in v , lam⇓ v⇓ , q
-
-  -- (n :Ne Val Γ α) → SCV (ne n)
-
-  all-scv-ne : ∀ {α Γ} (n : Ne Val Γ α) → SCV (ne n)
-  all-scv-ne {⋆} n = tt
-  all-scv-ne {α ⇒ β} n u p =
-    ne (app n u) , ne⇓ , all-scv-ne {β} (app n u)
-
-  -- (u : Val Γ α) → SCV u
-
-  all-scv : ∀ {α Γ} (u : Val Γ α) → SCV u
-  all-scv (lam t ρ) =
-    all-scv-lam t ρ
-  all-scv (ne n) =
-    all-scv-ne n
-
-  -- (ρ : Env Δ Γ) → SCE
-
-  all-sce : ∀ {Δ Γ} (ρ : Env Δ Γ) → SCE ρ
-  all-sce [] = tt
-  all-sce (u ∷ ρ) = all-scv u , all-sce ρ
-
-  -- (σ : Σ ⇉ Δ) (ρ : Env Δ Γ) → SC (t [ σ ]) ρ
-
-  all-scs : ∀ {Σ Δ Γ} (σ : Σ ⇉ Δ) (ρ : Env Δ Γ) → SCS σ ρ
-  all-scs ı ρ =
-    ρ , ι⇓ , all-sce ρ
-  all-scs (σ ⊙ σ′) ρ =
-    let ρ′ , ⇓ρ′ , p = all-scs σ′ ρ
-        ρ′′ , ⇓ρ′′ , q = all-scs σ ρ′
-    in ρ′′ , ⊙⇓ ⇓ρ′ ⇓ρ′′ , q
-  all-scs (t ∷ σ) ρ =
-    let
-      u , u⇓ , p = all-sc t ρ
-      ρ′ , ρ′⇓ , q = all-scs σ ρ
-    in u ∷ ρ′ , ∷⇓ u⇓ ρ′⇓ , p , q
-  all-scs ↑ (u ∷ ρ) =
-    ρ , ↑⇓ , all-sce ρ
-
-  -- ∀ {α Δ Γ} (t : Tm Δ α) (ρ : Env Δ Γ) → SC t ρ
-
-  all-sc : ∀ {α Δ Γ} (t : Tm Δ α) (ρ : Env Δ Γ) → SC t ρ
-  all-sc ø (u ∷ ρ) =
-    u , ø⇓ , all-scv u
-  all-sc (t ∙ t′) ρ =
-    let
-      u , u⇓ , p = all-sc t ρ
-      v , v⇓ , q = all-sc t′ ρ
-      w , w⇓ , r = all-scv u v q --This call doesn't pass the termination check.
-    in w , ∙⇓ u⇓ v⇓ w⇓ , r
-  all-sc (ƛ t) ρ =
-    lam t ρ , ƛ⇓ , all-scv-lam t ρ
-  all-sc (t [ σ ]) ρ =
-     let
-       ρ′ , ⇓ρ′ , p = all-scs σ ρ
-       u , ⇓u , q = all-sc t ρ′
-     in u , []⇓ ⇓ρ′ ⇓u , q
+  wk-sce : ∀ {Δ Γ} (ρ : Env Δ Γ) → SCE ρ → ∀ Σ → SCE (wk-env* Σ ρ)
+  wk-sce ρ p [] = p
+  wk-sce {[]} {Γ} [] p (γ ∷ Σ) rewrite wk-env*[] Σ {Γ} = tt
+  wk-sce {α ∷ Δ} {Γ} (u ∷ ρ) (p , q) (γ ∷ Σ) rewrite wk-env*∷ Σ u ρ =
+    wk-scv u p (γ ∷ Σ) , wk-sce ρ q (γ ∷ Σ)
