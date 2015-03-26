@@ -66,24 +66,23 @@ Ctx = List Ty
 mutual
 
   infixl 5 _∙_ _[_]
-  infixr 4 _⇉_
   infixr 3 ƛ_
 
   -- Terms.
 
   data Tm : Ctx → Ty → Set where
     ø   : ∀ {α Γ} → Tm (α ∷ Γ) α
-    _∙_ : ∀ {α β Γ} → Tm Γ (α ⇒ β) → Tm Γ α → Tm Γ β
-    ƛ_  : ∀ {α β Γ} → Tm (α ∷ Γ) β → Tm Γ (α ⇒ β)
-    _[_] : ∀ {α Δ Γ} → Tm Δ α → Δ ⇉ Γ → Tm Γ α
+    _∙_ : ∀ {α β Γ} (t : Tm Γ (α ⇒ β)) (t′ : Tm Γ α) → Tm Γ β
+    ƛ_  : ∀ {α β Γ} (t : Tm (α ∷ Γ) β) → Tm Γ (α ⇒ β)
+    _[_] : ∀ {α Γ Δ} (t : Tm Δ α) (σ : Sub Γ Δ) → Tm Γ α
 
-  -- Substitutions: `Δ ⇉ Γ` transforms `Tm Δ α` into `Tm Γ α`.
+  -- Substitutions: `Sub Γ Δ` transforms `Tm Δ α` into `Tm Γ α`.
 
-  data _⇉_ : Ctx → Ctx → Set where
-    ı   : ∀ {Γ} → Γ ⇉ Γ
-    _⊙_ : ∀ {Σ Δ Γ} (σ : Σ ⇉ Δ) (σ′ : Δ ⇉ Γ) → Σ ⇉ Γ
-    _∷_ : ∀ {α Δ Γ} (t : Tm Γ α) (σ : Δ ⇉ Γ) → α ∷ Δ ⇉ Γ
-    ↑  : ∀ {α Γ} → Γ ⇉ α ∷ Γ
+  data Sub : (Γ Δ : Ctx) → Set where
+    ı   : ∀ {Γ} → Sub Γ Γ
+    _⊙_ : ∀ {Γ Δ Σ} (σ : Sub Γ Δ) (σ′ : Sub Σ Γ) → Sub Σ Δ
+    _∷_ : ∀ {α Γ Δ} (t : Tm Γ α) (σ : Sub Γ Δ) → Sub Γ (α ∷ Δ)
+    ↑  : ∀ {α Γ} → Sub (α ∷ Γ) Γ
 
 
 --
@@ -118,7 +117,7 @@ III = I {⋆ ⇒ ⋆} ∙ (I {⋆ ⇒ ⋆} ∙ I {⋆})
 
 data Var : Ctx → Ty → Set where
   vz : ∀ {α Γ} → Var (α ∷ Γ) α
-  vs  : ∀ {α β Γ} → Var Γ β → Var (α ∷ Γ) β
+  vs : ∀ {α β Γ} (x : Var Γ α) → Var (β ∷ Γ) α
 
 data Ne (T : Ctx → Ty → Set) : Ctx → Ty → Set where
   var : ∀ {α Γ} (x : Var Γ α) → Ne T Γ α
@@ -128,13 +127,12 @@ data Ne (T : Ctx → Ty → Set) : Ctx → Ty → Set where
 mutual
 
   data Val : Ctx → Ty → Set where
-    lam : ∀ {α β Δ Γ} (t : Tm (α ∷ Δ) β) (ρ : Env Δ Γ) → Val Γ (α ⇒ β)
     ne  : ∀ {α Γ} (n : Ne Val Γ α) → Val Γ α
+    lam : ∀ {α β Γ Δ} (t : Tm (α ∷ Δ) β) (ρ : Env Γ Δ) → Val Γ (α ⇒ β)
 
-  data Env : Ctx → Ctx → Set where
-    []  : ∀ {Γ} → Env [] Γ
-    _∷_ : ∀ {α Δ Γ} (u : Val Γ α) (ρ : Env Δ Γ) → Env (α ∷ Δ) Γ
-
+  data Env (Γ : Ctx) : Ctx → Set where
+    []  : Env Γ []
+    _∷_ : ∀ {α Δ} (u : Val Γ α) (ρ : Env Γ Δ) → Env Γ (α ∷ Δ)
 
 module NaiveNorm where
 
@@ -143,21 +141,21 @@ module NaiveNorm where
 
     infixl 5 _⟨∙⟩_
 
-    ⟦_⟧_ : ∀ {α Δ Γ} → Tm Δ α → Env Δ Γ → Val Γ α
+    ⟦_⟧_ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) → Val Γ α
     ⟦ ø ⟧ (u ∷ ρ) = u
     ⟦ t ∙ t′ ⟧ ρ = ⟦ t ⟧ ρ ⟨∙⟩ ⟦ t′ ⟧ ρ
     ⟦ ƛ t ⟧ ρ = lam t ρ
     ⟦ t [ σ ] ⟧ ρ = ⟦ t ⟧ (⟦ σ ⟧* ρ)
 
-    ⟦_⟧*_ : ∀ {Σ Δ Γ} → Σ ⇉ Δ → Env Δ Γ → Env Σ Γ
+    ⟦_⟧*_ : ∀ {Γ Δ Σ} (σ : Sub Γ Δ) (ρ : Env Σ Γ) → Env Σ Δ
     ⟦ ı ⟧* ρ = ρ
     ⟦ σ ⊙ σ′ ⟧* ρ = ⟦ σ ⟧* (⟦ σ′ ⟧* ρ)
     ⟦ t ∷ σ ⟧* ρ = ⟦ t ⟧ ρ ∷ ⟦ σ ⟧* ρ
     ⟦ ↑ ⟧* (u ∷ ρ) = ρ
 
     _⟨∙⟩_ : ∀ {α β Γ} → Val Γ (α ⇒ β) → Val Γ α → Val Γ β
-    lam t ρ ⟨∙⟩ v = ⟦ t ⟧ (v ∷ ρ)
     ne n ⟨∙⟩ v = ne (app n v)
+    lam t ρ ⟨∙⟩ v = ⟦ t ⟧ (v ∷ ρ)
 
   ⟦III⟧ : ⟦ III ⟧ ([] {[]}) ≡ lam ø []
   ⟦III⟧ = refl
@@ -181,20 +179,20 @@ module DenotationalNorm where
   D ⋆ = ⊥
   D (α ⇒ β) = D α → D β
 
-  data DEnv : Ctx → Ctx → Set where
-    []  : ∀ {Γ} → DEnv [] Γ
-    _∷_ : ∀ {α Δ Γ} (u : D α) (ρ : DEnv Δ Γ) → DEnv (α ∷ Δ) Γ
+  data DEnv (Γ : Ctx) : Ctx → Set where
+    []  : DEnv Γ []
+    _∷_ : ∀ {α Δ} (u : D α) (ρ : DEnv Γ Δ) → DEnv Γ (α ∷ Δ)
 
 
   mutual
 
-    ⟦_⟧_ : ∀ {α Δ Γ} → Tm Δ α → DEnv Δ Γ → D α
+    ⟦_⟧_ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : DEnv Γ Δ) → D α
     ⟦ ø ⟧ (u ∷ ρ) = u
     ⟦ t ∙ t′ ⟧ ρ = (⟦ t ⟧ ρ) (⟦ t′ ⟧ ρ)
     ⟦ ƛ t ⟧ ρ = λ u → ⟦ t ⟧ (u ∷ ρ)
     ⟦ t [ σ ] ⟧ ρ = ⟦ t ⟧ (⟦ σ ⟧* ρ)
 
-    ⟦_⟧*_ : ∀ {Σ Δ Γ} → Σ ⇉ Δ → DEnv Δ Γ → DEnv Σ Γ
+    ⟦_⟧*_ : ∀ {Γ Δ Σ} (σ : Sub Δ Σ) (ρ : DEnv Γ Δ) → DEnv Γ Σ
     ⟦ ı ⟧* ρ = ρ
     ⟦ σ ⊙ σ′ ⟧* ρ = ⟦ σ ⟧* (⟦ σ′ ⟧* ρ)
     ⟦ t ∷ σ ⟧* ρ = ⟦ t ⟧ ρ ∷ ⟦ σ ⟧* ρ
@@ -214,9 +212,9 @@ module DenotationalNorm where
 -- η-long β-normal forms.
 --
 
-data Nf : Ctx → Ty → Set where
-  lam : ∀ {α β Γ} (u : Nf (α ∷ Γ) β) → Nf Γ (α ⇒ β)
-  ne  : ∀ {Γ} (n : Ne Nf Γ ⋆) → Nf Γ ⋆
+data Nf (Γ : Ctx) : Ty → Set where
+  ne  : ∀ (n : Ne Nf Γ ⋆) → Nf Γ ⋆
+  lam : ∀ {α β} (m : Nf (α ∷ Γ) β) → Nf Γ (α ⇒ β)
 
 --
 -- Weakening
@@ -224,15 +222,15 @@ data Nf : Ctx → Ty → Set where
 
 mutual
 
-  wk-ne : ∀ {α β Γ} (n : Ne Val Γ β) → Ne Val (α ∷ Γ) β
+  wk-ne : ∀ {α β Γ} (n : Ne Val Γ α) → Ne Val (β ∷ Γ) α
   wk-ne (var x) = var (vs x)
   wk-ne (app n u) = app (wk-ne n) (wk-val u)
 
-  wk-val : ∀ {α β Γ} (u : Val Γ β) → Val (α ∷ Γ) β
+  wk-val : ∀ {α β Γ} (u : Val Γ α) → Val (β ∷ Γ) α
   wk-val (lam t ρ) = lam t (wk-env ρ)
   wk-val (ne n) = ne (wk-ne n)
 
-  wk-env : ∀ {α Δ Γ} (ρ : Env Δ Γ) → Env Δ (α ∷ Γ)
+  wk-env : ∀ {α Γ Δ} (ρ : Env Γ Δ) → Env (α ∷ Γ) Δ
   wk-env [] = []
   wk-env (u ∷ ρ) = wk-val u ∷ wk-env ρ
 
@@ -247,7 +245,7 @@ wk-val* : ∀ {α} Δ {Γ} (u : Val Γ α) → Val (Δ ++ Γ) α
 wk-val* [] u = u
 wk-val* (α ∷ Δ) u = wk-val (wk-val* Δ u)
 
-wk-env* : ∀ {Δ} Σ {Γ} (ρ : Env Δ Γ) → Env Δ (Σ ++ Γ)
+wk-env* : ∀ {Δ} Σ {Γ} (ρ : Env Γ Δ) → Env (Σ ++ Γ) Δ
 wk-env* [] ρ = ρ
 wk-env* (α ∷ Σ) ρ = wk-env (wk-env* Σ ρ)
 
@@ -259,9 +257,9 @@ var⌈_⌉ : ∀ {α Γ} (x : Var Γ α) → Tm Γ α
 var⌈ vz ⌉ = ø
 var⌈ vs x ⌉ = var⌈ x ⌉ [ ↑ ]
 
-[]⇉ : ∀ {Γ} → [] ⇉ Γ
-[]⇉ {[]} = ı
-[]⇉ {α ∷ Γ} = []⇉ ⊙ ↑
+sub-from-[] : ∀ {Γ} → Sub Γ []
+sub-from-[] {[]} = ı
+sub-from-[] {α ∷ Γ} = sub-from-[] ⊙ ↑
 
 mutual
 
@@ -274,8 +272,8 @@ mutual
     ƛ t [ ø ∷ (env⌈ ρ ⌉ ⊙ ↑) ]
   val⌈ ne n ⌉ = ne-val⌈ n ⌉
 
-  env⌈_⌉ : ∀ {Δ Γ} (ρ : Env Δ Γ) → Δ ⇉ Γ
-  env⌈ [] ⌉ = []⇉
+  env⌈_⌉ : ∀ {Γ Δ} (ρ : Env Γ Δ) → Sub Γ Δ
+  env⌈ [] ⌉ = sub-from-[]
   env⌈ u ∷ ρ ⌉ = val⌈ u ⌉ ∷ env⌈ ρ ⌉
 
 mutual
@@ -284,8 +282,8 @@ mutual
   ne-nf⌈ var x ⌉ = var⌈ x ⌉
   ne-nf⌈ app n u ⌉ = ne-nf⌈ n ⌉ ∙ nf⌈ u ⌉
 
-  nf⌈_⌉ : ∀ {α Γ} (u : Nf Γ α) → Tm Γ α
-  nf⌈ lam u ⌉ = ƛ nf⌈ u ⌉
+  nf⌈_⌉ : ∀ {α Γ} (m : Nf Γ α) → Tm Γ α
+  nf⌈ lam m ⌉ = ƛ nf⌈ m ⌉
   nf⌈ ne n ⌉ = ne-nf⌈ n ⌉
 
 -- Identity environments.
@@ -305,8 +303,8 @@ module NaiveQuote where
 
     q-val : ∀ {α Γ} (u : Val Γ α) → Nf Γ α
     q-val {⋆} (ne n) = ne (q-ne n)
-    q-val {α ⇒ β} {Γ} f =
-      lam {α} (q-val {β} (wk-val f ⟨∙⟩ ne (var vz)))
+    q-val {α ⇒ β} f =
+      lam (q-val (wk-val f ⟨∙⟩ ne (var vz)))
 
     q-ne : ∀ {α Γ} (n : Ne Val Γ α) → Ne Nf Γ α
     q-ne (var x) = var x
@@ -332,37 +330,37 @@ mutual
 
   infix 4 ⟦_⟧_⇓_ ⟦_⟧*_⇓_ _⟨∙⟩_⇓_
 
-  data ⟦_⟧_⇓_ : ∀ {α Δ Γ} → Tm Δ α → Env Δ Γ → Val Γ α → Set where
-    ø⇓ : ∀ {α Δ Γ} {u : Val Γ α} {ρ : Env Δ Γ} →
+  data ⟦_⟧_⇓_ : ∀ {α Γ Δ} → Tm Δ α → Env Γ Δ → Val Γ α → Set where
+    ø⇓ : ∀ {α Γ Δ} {u : Val Γ α} {ρ : Env Γ Δ} →
       ⟦ ø ⟧ (u ∷ ρ) ⇓ u
-    ∙⇓ : ∀ {α β Δ Γ} {t : Tm Δ (α ⇒ β)} {t′ : Tm Δ α} {ρ : Env Δ Γ} {u v w}
+    ∙⇓ : ∀ {α β Γ Δ} {t : Tm Δ (α ⇒ β)} {t′ : Tm Δ α} {ρ : Env Γ Δ} {u v w}
       (p : ⟦ t ⟧ ρ ⇓ u) (q : ⟦ t′ ⟧ ρ ⇓ v) (r : u ⟨∙⟩ v ⇓ w) →
       ⟦ t ∙ t′ ⟧ ρ ⇓ w
-    ƛ⇓ : ∀ {α β Δ Γ} {t : Tm (α ∷ Δ) β} {ρ : Env Δ Γ} →
+    ƛ⇓ : ∀ {α β Γ Δ} {t : Tm (α ∷ Δ) β} {ρ : Env Γ Δ} →
       ⟦ ƛ t ⟧ ρ ⇓ lam t ρ
-    []⇓ : ∀ {α Σ Δ Γ} {t : Tm Σ α } {σ : Σ ⇉ Δ} {ρ : Env Δ Γ} {ρ′ u}
+    []⇓ : ∀ {α Γ Δ Σ} {t : Tm Σ α } {σ : Sub Δ Σ} {ρ : Env Γ Δ} {ρ′ u}
       (p : ⟦ σ ⟧* ρ ⇓ ρ′) (q : ⟦ t ⟧ ρ′ ⇓ u) →
       ⟦ t [ σ ] ⟧ ρ ⇓ u
 
 
-  data ⟦_⟧*_⇓_ : ∀ {Σ Δ Γ} → Σ ⇉ Δ → Env Δ Γ → Env Σ Γ → Set where
-    ι⇓ : ∀ {Σ Γ} {ρ : Env Σ Γ} →
+  data ⟦_⟧*_⇓_ : ∀ {Γ Δ Σ} → Sub Δ Σ → Env Γ Δ → Env Γ Σ → Set where
+    ι⇓ : ∀ {Γ Σ} {ρ : Env Γ Σ} →
       ⟦ ı ⟧* ρ ⇓ ρ
-    ⊙⇓ : ∀ {Σ Δ Δ′ Γ} {σ : Σ ⇉ Δ′} {σ′ : Δ′ ⇉ Δ} {ρ : Env Δ Γ} {ρ′ ρ′′}
+    ⊙⇓ : ∀ {Γ Δ Δ′ Σ} {σ : Sub Δ′ Σ} {σ′ : Sub Δ Δ′} {ρ : Env Γ Δ} {ρ′ ρ′′}
       (p : ⟦ σ′ ⟧* ρ ⇓ ρ′) (q : ⟦ σ ⟧* ρ′ ⇓ ρ′′) →
       ⟦ σ ⊙ σ′ ⟧* ρ ⇓ ρ′′
-    ∷⇓ : ∀ {α Σ Δ Γ} {t : Tm Δ α} {σ : Σ ⇉ Δ} {ρ : Env Δ Γ} {u ρ′}
+    ∷⇓ : ∀ {α Γ Δ Σ} {t : Tm Δ α} {σ : Sub Δ Σ} {ρ : Env Γ Δ} {u ρ′}
       (p : ⟦ t ⟧ ρ ⇓ u) (q : ⟦ σ ⟧* ρ ⇓ ρ′) →
       ⟦ t ∷ σ ⟧* ρ ⇓ u ∷ ρ′
-    ↑⇓ : ∀ {α Δ Γ} {u : Val Γ α} {ρ : Env Δ Γ} →
+    ↑⇓ : ∀ {α Γ Δ} {u : Val Γ α} {ρ : Env Γ Δ} →
       ⟦ ↑ ⟧* (u ∷ ρ) ⇓ ρ
 
   data _⟨∙⟩_⇓_ : ∀ {α β Γ} → Val Γ (α ⇒ β) → Val Γ α → Val Γ β → Set where
-    lam⇓ : ∀ {α β Δ Γ} {t : Tm (α ∷ Δ) β} {ρ : Env Δ Γ} {u v}
-      (p : ⟦ t ⟧ (u ∷ ρ) ⇓ v) →
-      lam t ρ ⟨∙⟩ u ⇓ v
     ne⇓  : ∀ {α β Γ} {n : Ne Val Γ (α ⇒ β)} {u} →
       ne n ⟨∙⟩ u ⇓ ne (app n u)
+    lam⇓ : ∀ {α β Γ Δ} {t : Tm (α ∷ Δ) β} {ρ : Env Γ Δ} {u v}
+      (p : ⟦ t ⟧ (u ∷ ρ) ⇓ v) →
+      lam t ρ ⟨∙⟩ u ⇓ v
 
 mutual
 
@@ -402,14 +400,14 @@ module StrongComputability-Bad where
   SCV {⋆} u = ⊤
   SCV {α ⇒ β} u = ∀ v → SCV v → ∃ λ w → u ⟨∙⟩ v ⇓ w × SCV w
 
-  SCE : ∀ {Δ Γ} (ρ : Env Δ Γ) → Set
+  SCE : ∀ {Γ Δ} (ρ : Env Γ Δ) → Set
   SCE [] = ⊤
   SCE (u ∷ ρ) = SCV u × SCE ρ
 
-  SCS : ∀ {Σ Δ Γ} (σ : Σ ⇉ Δ) (ρ : Env Δ Γ) → Set
+  SCS : ∀ {Γ Δ Σ} (σ : Sub Δ Σ) (ρ : Env Γ Δ) → Set
   SCS σ ρ = ∃ λ ρ′ → ⟦ σ ⟧* ρ ⇓ ρ′ × SCE ρ′
 
-  SC : ∀ {α Δ Γ} (t : Tm Δ α) (ρ : Env Δ Γ) → Set
+  SC : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) → Set
   SC t ρ = ∃ λ u → ⟦ t ⟧ ρ ⇓ u × SCV u
 
   --
@@ -420,14 +418,14 @@ module StrongComputability-Bad where
   {-# TERMINATING #-}
   mutual
 
-    -- (t : Tm (α ∷ Δ) β) (ρ : Env Δ Γ) → SCV (lam t ρ)
+    -- (t : Tm (α ∷ Δ) β) (ρ : Env Γ Δ) → SCV (lam t ρ)
 
-    all-scv-lam : ∀ {α β Δ Γ} (t : Tm (α ∷ Δ) β) (ρ : Env Δ Γ) → SCV (lam t ρ)
+    all-scv-lam : ∀ {α β Γ Δ} (t : Tm (β ∷ Δ) α) (ρ : Env Γ Δ) → SCV (lam t ρ)
     all-scv-lam t ρ u p =
       let v , v⇓ , q = all-sc t (u ∷ ρ)
       in v , lam⇓ v⇓ , q
 
-    -- (n :Ne Val Γ α) → SCV (ne n)
+    -- (n : Ne Val Γ α) → SCV (ne n)
 
     all-scv-ne : ∀ {α Γ} (n : Ne Val Γ α) → SCV (ne n)
     all-scv-ne {⋆} n = tt
@@ -442,15 +440,15 @@ module StrongComputability-Bad where
     all-scv (ne n) =
       all-scv-ne n
 
-    -- (ρ : Env Δ Γ) → SCE
+    -- (ρ : Env Γ Δ) → SCE ρ
 
-    all-sce : ∀ {Δ Γ} (ρ : Env Δ Γ) → SCE ρ
+    all-sce : ∀ {Γ Δ} (ρ : Env Γ Δ) → SCE ρ
     all-sce [] = tt
     all-sce (u ∷ ρ) = all-scv u , all-sce ρ
 
-    -- (σ : Σ ⇉ Δ) (ρ : Env Δ Γ) → SC (t [ σ ]) ρ
+    -- (σ : Sub Δ Σ) (ρ : Env Γ Δ) → SCS σ ρ
 
-    all-scs : ∀ {Σ Δ Γ} (σ : Σ ⇉ Δ) (ρ : Env Δ Γ) → SCS σ ρ
+    all-scs : ∀ {Γ Δ Σ} (σ : Sub Δ Σ) (ρ : Env Γ Δ) → SCS σ ρ
     all-scs ı ρ =
       ρ , ι⇓ , all-sce ρ
     all-scs (σ ⊙ σ′) ρ =
@@ -465,9 +463,9 @@ module StrongComputability-Bad where
     all-scs ↑ (u ∷ ρ) =
       ρ , ↑⇓ , all-sce ρ
 
-    -- ∀ {α Δ Γ} (t : Tm Δ α) (ρ : Env Δ Γ) → SC t ρ
+    -- ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) → SC t ρ
 
-    all-sc : ∀ {α Δ Γ} (t : Tm Δ α) (ρ : Env Δ Γ) → SC t ρ
+    all-sc : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) → SC t ρ
     all-sc ø (u ∷ ρ) =
       u , ø⇓ , all-scv u
     all-sc (t ∙ t′) ρ =
@@ -496,15 +494,19 @@ data _≃_  : ∀ {α Γ} (x y : Tm Γ α) → Set where
              x ≃ x
   ≃sym   : ∀ {α Γ} {x y : Tm Γ α} →
              x ≃ y → y ≃ x
-  ≅trans : ∀ {α Γ} {x y z : Tm Γ α} →
+  ≃trans : ∀ {α Γ} {x y z : Tm Γ α} →
              x ≃ y → y ≃ z → x ≃ z
+  ≃η     : ∀ {α β Γ} {x : Tm Γ (α ⇒ β)} →
+             x ≃ (ƛ (x [ ↑ ] ∙ ø))
+  λ-cong : ∀ {α β Γ} {x y : Tm (α ∷ Γ) β} →
+             x ≃ y → (ƛ x) ≃ (ƛ y)
+
 
 --
 -- "Strong computability". (A failed attempt.)
 --
 
 SCV : ∀ {α Γ} (u : Val Γ α) → Set
---SCV {⋆} u = {!!} 
 SCV {⋆} (ne n) = ∃ λ m →
   QNe n ⇓ m
   × ne-val⌈ n ⌉ ≃ ne-nf⌈ m ⌉ 
@@ -513,7 +515,7 @@ SCV {α ⇒ β} {Γ} u = ∀ Δ v → SCV v →
     × val⌈ wk-val* Δ u ⌉ ∙ val⌈ v ⌉ ≃ val⌈ w ⌉
     × SCV w
 
-SCE : ∀ {Δ Γ} (ρ : Env Δ Γ) → Set
+SCE : ∀ {Γ Δ} (ρ : Env Γ Δ) → Set
 SCE [] = ⊤
 SCE (u ∷ ρ) = SCV u × SCE ρ
 
@@ -538,13 +540,12 @@ refl /Val/ u = u
 /∷/≡cong : ∀ {Γ₁ Γ₂} α (p : Γ₁ ≡ Γ₂) → α /∷/ p ≡ cong (_∷_ α) p
 /∷/≡cong α refl = refl
 
---wk-env* : ∀ {Δ} Σ {Γ} (ρ : Env Δ Γ) → Env Δ (Σ ++ Γ)
 wk-env*[] : ∀ Σ {Γ} → wk-env* Σ {Γ} [] ≡ []
 wk-env*[] [] = refl
 wk-env*[] (γ ∷ Σ) =
   cong wk-env (wk-env*[] Σ)
 
-wk-env*∷ : ∀ {α Δ} Σ {Γ} (u : Val Γ α) (ρ : Env Δ Γ) →
+wk-env*∷ : ∀ {α Δ} Σ {Γ} (u : Val Γ α) (ρ : Env Γ Δ) →
   wk-env* Σ (u ∷ ρ) ≡ wk-val* Σ u ∷ wk-env* Σ ρ
 wk-env*∷ [] u ρ = refl
 wk-env*∷ (γ ∷ Σ) u ρ rewrite wk-env*∷ Σ u ρ = refl
@@ -585,8 +586,60 @@ mutual
     in {!!}
   -}
 
-  wk-sce : ∀ {Δ Γ} (ρ : Env Δ Γ) → SCE ρ → ∀ Σ → SCE (wk-env* Σ ρ)
+  {-
+  wk-scv : ∀ {α Γ} (u : Val Γ α) → SCV u → ∀ Δ → SCV (wk-val* Δ u)
+  wk-scv {⋆} {Γ} (ne n) p Δ = {!!}
+  wk-scv {α ⇒ β} {Γ} u p Δ Σ v q = {!!}
+  wk-scv u p [] = p
+  wk-scv u p (γ ∷ Δ) = {!!}
+  -}
+
+  wk-sce : ∀ {Γ Δ} (ρ : Env Γ Δ) → SCE ρ → ∀ Σ → SCE (wk-env* Σ ρ)
   wk-sce ρ p [] = p
-  wk-sce {[]} {Γ} [] p (γ ∷ Σ) rewrite wk-env*[] Σ {Γ} = tt
-  wk-sce {α ∷ Δ} {Γ} (u ∷ ρ) (p , q) (γ ∷ Σ) rewrite wk-env*∷ Σ u ρ =
+  wk-sce {Γ} {[]} [] p (γ ∷ Σ) rewrite wk-env*[] Σ {Γ} = tt
+  wk-sce  {Γ} {α ∷ Δ} (u ∷ ρ) (p , q) (γ ∷ Σ) rewrite wk-env*∷ Σ u ρ =
     wk-scv u p (γ ∷ Σ) , wk-sce ρ q (γ ∷ Σ)
+
+
+val⌈⌉∘[↑] : ∀ {α β Γ} (u : Val Γ (α ⇒ β)) → val⌈ u ⌉ [ ↑ ] ≃ val⌈ wk-val u ⌉
+val⌈⌉∘[↑] (lam t ρ) = {!!}
+val⌈⌉∘[↑] (ne n) = {!!}
+
+mutual
+
+  scv→⌈⌉ : ∀ {α Γ} (u : Val Γ α) → SCV u →
+    ∃ λ m → QVal u ⇓ m × val⌈ u ⌉ ≃ nf⌈ m ⌉
+  scv→⌈⌉ {⋆} (ne n) (m , ⇓m , n≃m) =
+    ne m , ⋆⇓ n ⇓m , n≃m
+  scv→⌈⌉ {α ⇒ β} {Γ} u p =
+    let
+      r : SCV {α} {α ∷ Γ} (ne (var vz))
+      r = ⌈⌉→scv (var vz) (var vz) var⇓ ≃refl
+      pvzr : ∃ λ v → wk-val u ⟨∙⟩ ne (var vz) ⇓ v
+        × val⌈ wk-val u ⌉ ∙ ø ≃ val⌈ v ⌉
+        × SCV {β} {α ∷ Γ} v
+      pvzr = p (α ∷ []) (ne (var vz)) r
+      v , ⇓v , ≃⌈v⌉ , q = pvzr
+      vq : ∃ λ m → QVal v ⇓ m × val⌈ v ⌉ ≃ nf⌈ m ⌉
+      vq = scv→⌈⌉ {β} v q
+      m , v⇓m , ⌈v⌉≃⌈m⌉ = vq
+      ⇓lam-m : QVal u ⇓ lam m
+      ⇓lam-m = ⇒⇓ ⇓v v⇓m
+      xxx : val⌈ wk-val u ⌉ ∙ ø ≃ nf⌈ m ⌉
+      xxx = ≃trans ≃⌈v⌉ ⌈v⌉≃⌈m⌉
+    in lam m , ⇓lam-m
+           , (val⌈ u ⌉ ≃ nf⌈ lam m ⌉ ∋ {!!})
+             --≃trans (≃sym {!cong val⌈_⌉!}) {!!}
+{-
+val⌈ u ⌉ ≃ ƛ val⌈ u ⌉ [ ↑ ] ∙ ø ≃
+ƛ val⌈ wk-val u ⌉ ∙ ø ≃
+ƛ val⌈ v ⌉ ≃ ƛ nf⌈ m ⌉ ≃ nf⌈ lam m ⌉
+
+val⌈ u ⌉ [ ↑ ] ≃ val⌈ wk-val u ⌉
+-}
+
+  ⌈⌉→scv : ∀ {α Γ} (n : Ne Val Γ α) (m : Ne Nf Γ α) →
+    QNe n ⇓ m → ne-val⌈ n ⌉ ≃ ne-nf⌈ m ⌉ → SCV (ne n)
+  ⌈⌉→scv {⋆} n m ⇓m n≃m =
+    m , ⇓m , n≃m
+  ⌈⌉→scv {α ⇒ β} n m ⇓m n≃m Δ u p = {!!}

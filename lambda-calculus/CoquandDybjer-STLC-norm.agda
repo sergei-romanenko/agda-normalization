@@ -61,24 +61,23 @@ Ctx = List Ty
 mutual
 
   infixl 5 _∙_ _[_]
-  infixr 4 _⇉_
   infixr 3 ƛ_
 
   -- Terms.
 
   data Tm : Ctx → Ty → Set where
     ø   : ∀ {α Γ} → Tm (α ∷ Γ) α
-    _∙_ : ∀ {α β Γ} → Tm Γ (α ⇒ β) → Tm Γ α → Tm Γ β
-    ƛ_  : ∀ {α β Γ} → Tm (α ∷ Γ) β → Tm Γ (α ⇒ β)
-    _[_] : ∀ {α Δ Γ} → Tm Δ α → Δ ⇉ Γ → Tm Γ α
+    _∙_ : ∀ {α β Γ} (t : Tm Γ (α ⇒ β)) (t′ : Tm Γ α) → Tm Γ β
+    ƛ_  : ∀ {α β Γ} (t : Tm (α ∷ Γ) β) → Tm Γ (α ⇒ β)
+    _[_] : ∀ {α Γ Δ} (t : Tm Δ α) (σ : Sub Γ Δ) → Tm Γ α
 
-  -- Substitutions: `Δ ⇉ Γ` transforms `Tm Δ α` into `Tm Γ α`.
+  -- Substitutions: `Sub Γ Δ` transforms `Tm Δ α` into `Tm Γ α`.
 
-  data _⇉_ : Ctx → Ctx → Set where
-    ı   : ∀ {Γ} → Γ ⇉ Γ
-    _⊙_ : ∀ {Σ Δ Γ} (ts : Σ ⇉ Δ) (ts′ : Δ ⇉ Γ) → Σ ⇉ Γ
-    _∷_ : ∀ {α Δ Γ} (t : Tm Γ α) (ts : Δ ⇉ Γ) → α ∷ Δ ⇉ Γ
-    ↑  : ∀ {α Γ} → Γ ⇉ α ∷ Γ
+  data Sub : (Γ Δ : Ctx) → Set where
+    ı   : ∀ {Γ} → Sub Γ Γ
+    _⊙_ : ∀ {Γ Δ Σ} (σ : Sub Γ Δ) (σ′ : Sub Σ Γ) → Sub Σ Δ
+    _∷_ : ∀ {α Γ Δ} (t : Tm Γ α) (σ : Sub Γ Δ) → Sub Γ (α ∷ Δ)
+    ↑  : ∀ {α Γ} → Sub (α ∷ Γ) Γ
 
 
 --
@@ -105,51 +104,51 @@ K-SKK α β = K ∙ (S ∙ K ∙ K {β = α})
 III : Tm [] (⋆ ⇒ ⋆)
 III = I {⋆ ⇒ ⋆} ∙ (I {⋆ ⇒ ⋆} ∙ I {⋆})
 
+
 --
 -- Weak head normal forms.
 --
 
 data Var : Ctx → Ty → Set where
   vz : ∀ {α Γ} → Var (α ∷ Γ) α
-  vs  : ∀ {α β Γ} → Var Γ β → Var (α ∷ Γ) β
+  vs : ∀ {α β Γ} (x : Var Γ α) → Var (β ∷ Γ) α
 
 data Ne (T : Ctx → Ty → Set) : Ctx → Ty → Set where
   var : ∀ {α Γ} (x : Var Γ α) → Ne T Γ α
   app : ∀ {α β Γ} (f : Ne T Γ (α ⇒ β)) (u : T Γ α) → Ne T Γ β
 
 
-
 module NaiveNorm where
   mutual
 
     data Val : Ctx → Ty → Set where
-      lam : ∀ {α β Δ Γ} → Tm (α ∷ Δ) β → Env Δ Γ → Val Γ (α ⇒ β)
-      ne  : ∀ {α Γ} → Ne Val Γ α → Val Γ α
+      ne  : ∀ {α Γ} (n : Ne Val Γ α) → Val Γ α
+      lam : ∀ {α β Γ Δ} (t : Tm (α ∷ Δ) β) (ρ : Env Γ Δ) → Val Γ (α ⇒ β)
 
-    data Env : Ctx → Ctx → Set where
-      []  : ∀ {Γ} → Env [] Γ
-      _∷_ : ∀ {α Δ Γ} (u : Val Γ α) (ρ : Env Δ Γ) → Env (α ∷ Δ) Γ
+    data Env (Γ : Ctx) : Ctx → Set where
+      []  : Env Γ []
+      _∷_ : ∀ {α Δ} (u : Val Γ α) (ρ : Env Γ Δ) → Env Γ (α ∷ Δ)
 
   {-# TERMINATING #-}
   mutual
 
     infixl 5 _⟨∙⟩_
 
-    ⟦_⟧_ : ∀ {α Δ Γ} → Tm Δ α → Env Δ Γ → Val Γ α
+    ⟦_⟧_ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) → Val Γ α
     ⟦ ø ⟧ (u ∷ ρ) = u
     ⟦ t ∙ t′ ⟧ ρ = ⟦ t ⟧ ρ ⟨∙⟩ ⟦ t′ ⟧ ρ
     ⟦ ƛ t ⟧ ρ = lam t ρ
     ⟦ t [ σ ] ⟧ ρ = ⟦ t ⟧ (⟦ σ ⟧* ρ)
 
-    ⟦_⟧*_ : ∀ {Σ Δ Γ} → Σ ⇉ Δ → Env Δ Γ → Env Σ Γ
+    ⟦_⟧*_ : ∀ {Γ Δ Σ} (σ : Sub Γ Δ) (ρ : Env Σ Γ) → Env Σ Δ
     ⟦ ı ⟧* ρ = ρ
     ⟦ σ ⊙ σ′ ⟧* ρ = ⟦ σ ⟧* (⟦ σ′ ⟧* ρ)
     ⟦ t ∷ σ ⟧* ρ = ⟦ t ⟧ ρ ∷ ⟦ σ ⟧* ρ
     ⟦ ↑ ⟧* (u ∷ ρ) = ρ
 
     _⟨∙⟩_ : ∀ {α β Γ} (u : Val Γ (α ⇒ β)) (v : Val Γ α) → Val Γ β
-    lam t ρ ⟨∙⟩ v = ⟦ t ⟧ (v ∷ ρ)
     ne n ⟨∙⟩ v = ne (app n v)
+    lam t ρ ⟨∙⟩ v = ⟦ t ⟧ (v ∷ ρ)
 
     ⟦III⟧ : ⟦ III ⟧ ([] {[]}) ≡ lam ø []
     ⟦III⟧ = refl
@@ -173,20 +172,20 @@ module DenotationalNorm where
   D ⋆ = ⊥
   D (α ⇒ β) = D α → D β
 
-  data DEnv : Ctx → Ctx → Set where
-    []  : ∀ {Γ} → DEnv [] Γ
-    _∷_ : ∀ {α Δ Γ} (u : D α) (ρ : DEnv Δ Γ) → DEnv (α ∷ Δ) Γ
+  data DEnv (Γ : Ctx) : Ctx → Set where
+    []  : DEnv Γ []
+    _∷_ : ∀ {α Δ} (u : D α) (ρ : DEnv Γ Δ) → DEnv Γ (α ∷ Δ)
 
 
   mutual
 
-    ⟦_⟧_ : ∀ {α Δ Γ} → Tm Δ α → DEnv Δ Γ → D α
+    ⟦_⟧_ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : DEnv Γ Δ) → D α
     ⟦ ø ⟧ (u ∷ ρ) = u
     ⟦ t ∙ t′ ⟧ ρ = (⟦ t ⟧ ρ) (⟦ t′ ⟧ ρ)
     ⟦ ƛ t ⟧ ρ = λ u → ⟦ t ⟧ (u ∷ ρ)
     ⟦ t [ σ ] ⟧ ρ = ⟦ t ⟧ (⟦ σ ⟧* ρ)
 
-    ⟦_⟧*_ : ∀ {Σ Δ Γ} → Σ ⇉ Δ → DEnv Δ Γ → DEnv Σ Γ
+    ⟦_⟧*_ : ∀ {Γ Δ Σ} (σ : Sub Δ Σ) (ρ : DEnv Γ Δ) → DEnv Γ Σ
     ⟦ ı ⟧* ρ = ρ
     ⟦ σ ⊙ σ′ ⟧* ρ = ⟦ σ ⟧* (⟦ σ′ ⟧* ρ)
     ⟦ t ∷ σ ⟧* ρ = ⟦ t ⟧ ρ ∷ ⟦ σ ⟧* ρ
@@ -209,17 +208,17 @@ module DenotationalNorm where
 mutual
 
   data GVal : Ctx → Ty → Set where
-    lam : ∀ {α β Δ Γ} → Tm (α ∷ Δ) β → GEnv Δ Γ → GVal Γ (α ⇒ β)
+    lam : ∀ {α β Γ Δ} (t : Tm (α ∷ Δ) β) (ρ : GEnv Γ Δ) → GVal Γ (α ⇒ β)
     ne  : ∀ {α Γ} → Ne GVal Γ α → GVal Γ α
 
   {-
-  data GEnv : Ctx → Ctx → Set where
-    []  : ∀ {Γ} → GEnv [] Γ
-    _∷_ : ∀ {α Δ Γ} (u : G Γ α) (ρ : GEnv Δ Γ) → GEnv (α ∷ Δ) Γ
+  data GEnv (Γ : Ctx) : Ctx → Set where
+    []  : ∀ {Γ} → GEnv Γ []
+    _∷_ : ∀ {α Δ Γ} (u : G Γ α) (ρ : GEnv Γ Δ) → GEnv Γ (α ∷ Δ)
   -}
-  GEnv : Ctx → Ctx → Set
-  GEnv [] Γ = ⊤
-  GEnv (α ∷ Δ) Γ = G Γ α × GEnv Δ Γ
+  GEnv : (Γ Δ : Ctx) → Set
+  GEnv Γ [] = ⊤
+  GEnv Γ (α ∷ Δ) = G Γ α × GEnv Γ Δ
 
   G : (Γ : Ctx) (α : Ty) → Set
   G Γ ⋆ = GVal Γ ⋆
@@ -252,13 +251,13 @@ p ⟨∙⟩ q = proj₂ p q
 
 mutual
 
-  ⟦_⟧_ : ∀ {α Δ Γ} → Tm Δ α → GEnv Δ Γ → G Γ α
+  ⟦_⟧_ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : GEnv Γ Δ) → G Γ α
   ⟦ ø ⟧ (u , ρ) = u
   ⟦ t ∙ t′ ⟧ ρ = ⟦ t ⟧ ρ ⟨∙⟩ ⟦ t′ ⟧ ρ
   ⟦ ƛ t ⟧ ρ = lam t ρ , λ g → ⟦ t ⟧ (g , ρ)
   ⟦ t [ σ ] ⟧ ρ = ⟦ t ⟧ (⟦ σ ⟧* ρ)
 
-  ⟦_⟧*_ : ∀ {Σ Δ Γ} → Σ ⇉ Δ → GEnv Δ Γ → GEnv Σ Γ
+  ⟦_⟧*_ : ∀ {Γ Δ Σ} (σ : Sub Δ Σ) (ρ : GEnv Γ Δ) → GEnv Γ Σ
   ⟦ ı ⟧* ρ = ρ
   ⟦ σ ⊙ σ′ ⟧* ρ = ⟦ σ ⟧* (⟦ σ′ ⟧* ρ)
   ⟦ t ∷ σ ⟧* ρ = ⟦ t ⟧ ρ , ⟦ σ ⟧* ρ
