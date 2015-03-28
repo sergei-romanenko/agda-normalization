@@ -19,12 +19,14 @@
 
 -}
 
-{-# OPTIONS --no-positivity-check #-}
+--{-# OPTIONS --no-positivity-check #-}
 
-module CoquandDybjer-STLC-norm-negative where
+module CoquandDybjer-STLC-norm where
 
-open import Data.List
-  hiding ([_])
+open import Algebra using (module Monoid)
+
+open import Data.List as List
+  using (List; []; _∷_; _++_)
 open import Data.List.Any
   using (Any; here; there; module Membership-≡)
 --open import Data.Nat
@@ -58,6 +60,22 @@ data Ty : Set where
 Ctx : Set
 Ctx = List Ty
 
+-- We will use the associativity of _++_
+
+module CtxMonoid = Monoid (List.monoid Ty)
+
+--
+-- Environments.
+--
+
+data Env (T : Ctx → Ty → Set) (Γ : Ctx) : Ctx → Set where
+  [] : Env T Γ []
+  _∷_ : ∀ {Δ α} (v : T Γ α) (ρ : Env T Γ Δ) → Env T Γ (α ∷ Δ)
+
+--
+-- Terms and substitutions.
+--
+
 mutual
 
   infixl 5 _∙_ _[_]
@@ -78,7 +96,6 @@ mutual
     _⊙_ : ∀ {Γ Δ Σ} (σ : Sub Γ Δ) (σ′ : Sub Σ Γ) → Sub Σ Δ
     _∷_ : ∀ {α Γ Δ} (t : Tm Γ α) (σ : Sub Γ Δ) → Sub Γ (α ∷ Δ)
     ↑  : ∀ {α Γ} → Sub (α ∷ Γ) Γ
-
 
 --
 -- Example terms.
@@ -119,28 +136,23 @@ data Ne (T : Ctx → Ty → Set) : Ctx → Ty → Set where
 
 
 module NaiveNorm where
-  mutual
 
-    data Val : Ctx → Ty → Set where
-      ne  : ∀ {α Γ} (n : Ne Val Γ α) → Val Γ α
-      lam : ∀ {α β Γ Δ} (t : Tm (α ∷ Δ) β) (ρ : Env Γ Δ) → Val Γ (α ⇒ β)
-
-    data Env (Γ : Ctx) : Ctx → Set where
-      []  : Env Γ []
-      _∷_ : ∀ {α Δ} (u : Val Γ α) (ρ : Env Γ Δ) → Env Γ (α ∷ Δ)
+  data Val : Ctx → Ty → Set where
+    ne  : ∀ {α Γ} (n : Ne Val Γ α) → Val Γ α
+    lam : ∀ {α β Γ Δ} (t : Tm (α ∷ Δ) β) (ρ : Env Val Γ Δ) → Val Γ (α ⇒ β)
 
   {-# TERMINATING #-}
   mutual
 
     infixl 5 _⟨∙⟩_
 
-    ⟦_⟧_ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) → Val Γ α
+    ⟦_⟧_ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Val Γ Δ) → Val Γ α
     ⟦ ø ⟧ (u ∷ ρ) = u
     ⟦ t ∙ t′ ⟧ ρ = ⟦ t ⟧ ρ ⟨∙⟩ ⟦ t′ ⟧ ρ
     ⟦ ƛ t ⟧ ρ = lam t ρ
     ⟦ t [ σ ] ⟧ ρ = ⟦ t ⟧ (⟦ σ ⟧* ρ)
 
-    ⟦_⟧*_ : ∀ {Γ Δ Σ} (σ : Sub Γ Δ) (ρ : Env Σ Γ) → Env Σ Δ
+    ⟦_⟧*_ : ∀ {Γ Δ Σ} (σ : Sub Γ Δ) (ρ : Env Val Σ Γ) → Env Val Σ Δ
     ⟦ ı ⟧* ρ = ρ
     ⟦ σ ⊙ σ′ ⟧* ρ = ⟦ σ ⟧* (⟦ σ′ ⟧* ρ)
     ⟦ t ∷ σ ⟧* ρ = ⟦ t ⟧ ρ ∷ ⟦ σ ⟧* ρ
@@ -150,16 +162,16 @@ module NaiveNorm where
     ne n ⟨∙⟩ v = ne (app n v)
     lam t ρ ⟨∙⟩ v = ⟦ t ⟧ (v ∷ ρ)
 
-    ⟦III⟧ : ⟦ III ⟧ ([] {[]}) ≡ lam ø []
-    ⟦III⟧ = refl
+  ⟦III⟧ : ⟦ III ⟧ ([] {Val} {[]}) ≡ lam ø []
+  ⟦III⟧ = refl
 
-    ⟦SKK⟧ : ⟦ SKK {⋆} ⟧ ([] {[]}) ≡
-      lam (ø [ ↑ ] [ ↑ ] ∙ ø ∙ (ø [ ↑ ] ∙ ø))
-          (lam (ƛ ø [ ↑ ]) [] ∷ (lam (ƛ ø [ ↑ ]) [] ∷ []))
-    ⟦SKK⟧ = refl
+  ⟦SKK⟧ : ⟦ SKK {⋆} ⟧ ([] {Val} {[]}) ≡
+    lam (ø [ ↑ ] [ ↑ ] ∙ ø ∙ (ø [ ↑ ] ∙ ø))
+        (lam (ƛ ø [ ↑ ]) [] ∷ (lam (ƛ ø [ ↑ ]) [] ∷ []))
+  ⟦SKK⟧ = refl
 
-    ⟦SKK∙I⟧ : ⟦ SKK ∙ I {⋆} ⟧ ([] {[]}) ≡ lam ø []
-    ⟦SKK∙I⟧ = refl
+  ⟦SKK∙I⟧ : ⟦ SKK ∙ I {⋆} ⟧ ([] {Val} {[]}) ≡ lam ø []
+  ⟦SKK∙I⟧ = refl
 
 
 --
@@ -191,74 +203,99 @@ module DenotationalNorm where
     ⟦ t ∷ σ ⟧* ρ = ⟦ t ⟧ ρ ∷ ⟦ σ ⟧* ρ
     ⟦ ↑ ⟧* (u ∷ ρ) = ρ
 
-    ⟦III⟧ : ⟦ III ⟧ ([] {[]}) ≡ (λ u → u)
-    ⟦III⟧ = refl
+  ⟦III⟧ : ⟦ III ⟧ ([] {[]}) ≡ (λ u → u)
+  ⟦III⟧ = refl
 
-    ⟦SKK⟧ : ⟦ SKK {⋆} ⟧ ([] {[]}) ≡ (λ u → u)
-    ⟦SKK⟧ = refl
+  ⟦SKK⟧ : ⟦ SKK {⋆} ⟧ ([] {[]}) ≡ (λ u → u)
+  ⟦SKK⟧ = refl
 
   -- The problem is how to "reify" D-values?
   -- (= How to go back to first-order terms?)
   -- (How compare functions for equality?)
 
---
--- Gluing
---
+
+data Nf : Ctx → Ty → Set where
+  ne  : ∀ {Γ} (n : Ne Nf Γ ⋆) → Nf Γ ⋆
+  lam : ∀ {Γ α β} (m : Nf (α ∷ Γ) β) → Nf Γ (α ⇒ β)
+
+-- Structure-preserving conversion to terms.
+
+embVar : ∀ {Γ α} (x : Var Γ α) → Tm Γ α
+embVar vz = ø
+embVar (vs x) = embVar x [ ↑ ]
 
 mutual
 
-  data GVal : Ctx → Ty → Set where
-    lam : ∀ {α β Γ Δ} (t : Tm (α ∷ Δ) β) (ρ : GEnv Γ Δ) → GVal Γ (α ⇒ β)
-    ne  : ∀ {α Γ} → Ne GVal Γ α → GVal Γ α
+  embNe : ∀ {Γ α} (n : Ne Nf Γ α) → Tm Γ α
+  embNe (var x) = embVar x
+  embNe (app n m) = embNe n ∙ embNf m
 
-  {-
-  data GEnv (Γ : Ctx) : Ctx → Set where
-    []  : ∀ {Γ} → GEnv Γ []
-    _∷_ : ∀ {α Δ Γ} (u : G Γ α) (ρ : GEnv Γ Δ) → GEnv Γ (α ∷ Δ)
-  -}
-  GEnv : (Γ Δ : Ctx) → Set
-  GEnv Γ [] = ⊤
-  GEnv Γ (α ∷ Δ) = G Γ α × GEnv Γ Δ
+  embNf : ∀ {Γ α} (m : Nf Γ α) → Tm Γ α
+  embNf (ne n) = embNe n
+  embNf (lam m) = ƛ embNf m
 
-  G : (Γ : Ctx) (α : Ty) → Set
-  G Γ ⋆ = GVal Γ ⋆
-  G Γ (α ⇒ β) = GVal Γ (α ⇒ β) × (G Γ α → G Γ β)
+postulate
+  wkNeNf : ∀ {α Γ} Δ (u : Ne Nf Γ α) → Ne Nf (Δ ++ Γ) α
 
--- ⌈_⌉
+--
+-- Values.
+--
 
-⌈_⌉ : ∀ {α Γ} (p : G Γ α) → GVal Γ α
-⌈_⌉ {⋆} u = u
-⌈_⌉ {α ⇒ β} p = proj₁ p
+Val : Ctx → Ty → Set
+Val Γ ⋆ = Ne Nf Γ ⋆
+Val Γ (α ⇒ β) = ∀ Δ → Val (Δ ++ Γ) α → Val (Δ ++ Γ) β
+--Val Γ (α ⇒ β) = Val Γ α → Val Γ β
 
+VEnv : Ctx → Ctx → Set
+VEnv = Env Val
 
-{-
--- ⟪_⟫
+wkVal* : ∀ {α Γ} Δ (u : Val Γ α) → Val (Δ ++ Γ) α
+wkVal* {⋆} Δ n = wkNeNf Δ n
+wkVal* {α ⇒ β} {Γ} Δ f = λ Δ′ v →
+  let
+    ⟨_⟩₁ : Val (Δ′ ++ Δ ++ Γ) α → Val ((Δ′ ++ Δ) ++ Γ) α
+    ⟨_⟩₁ = subst (flip Val α) (sym $ CtxMonoid.assoc Δ′ Δ Γ)
+    ⟨_⟩₂ : Val ((Δ′ ++ Δ) ++ Γ) β → Val (Δ′ ++ Δ ++ Γ) β
+    ⟨_⟩₂ = subst (flip Val β) (CtxMonoid.assoc Δ′ Δ Γ)
+  in ⟨ f (Δ′ ++ Δ) ⟨ v ⟩₁ ⟩₂
 
-⟪_⟫ : ∀ {Γ α} (p : G Γ α) → Tm Γ α
-⟪_⟫ {Γ} {⋆} ()
-⟪_⟫ {Γ} {α ⇒ β} p = proj₁ p
--}
+wkVEnv : ∀ {Γ Δ} Σ (ρ : VEnv Γ Δ) → VEnv (Σ ++ Γ) Δ
+wkVEnv Σ [] = []
+wkVEnv {Γ} {α ∷ Δ} Σ (u ∷ ρ) = wkVal* Σ u ∷ wkVEnv Σ ρ
 
--- Application for glued values.
+--
+-- Evaluation: terms to values.
+--
 
 infixl 5 _⟨∙⟩_
 
-_⟨∙⟩_ : ∀ {Γ α β} (p : G Γ (α ⇒ β)) (q : G Γ α) → G Γ β
-p ⟨∙⟩ q = proj₂ p q
-
--- Glued semantics terminates!
--- (Note that the positivity check has been turned off! :-( )
+_⟨∙⟩_ : ∀ {Γ α β} (t : Val Γ (α ⇒ β)) (t′ : Val Γ α) → Val Γ β
+t ⟨∙⟩ t′ = t [] t′
 
 mutual
 
-  ⟦_⟧_ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : GEnv Γ Δ) → G Γ α
-  ⟦ ø ⟧ (u , ρ) = u
+  ⟦_⟧_ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : VEnv Γ Δ) → Val Γ α
+  ⟦ ø ⟧ (u ∷ ρ) = u
   ⟦ t ∙ t′ ⟧ ρ = ⟦ t ⟧ ρ ⟨∙⟩ ⟦ t′ ⟧ ρ
-  ⟦ ƛ t ⟧ ρ = lam t ρ , λ g → ⟦ t ⟧ (g , ρ)
+  ⟦ ƛ t ⟧ ρ = λ Δ u → ⟦ t ⟧ (u ∷ wkVEnv Δ ρ)
   ⟦ t [ σ ] ⟧ ρ = ⟦ t ⟧ (⟦ σ ⟧* ρ)
 
-  ⟦_⟧*_ : ∀ {Γ Δ Σ} (σ : Sub Δ Σ) (ρ : GEnv Γ Δ) → GEnv Γ Σ
+  ⟦_⟧*_ : ∀ {Γ Δ Σ} (σ : Sub Δ Σ) (ρ : VEnv Γ Δ) → VEnv Γ Σ
   ⟦ ı ⟧* ρ = ρ
   ⟦ σ ⊙ σ′ ⟧* ρ = ⟦ σ ⟧* (⟦ σ′ ⟧* ρ)
-  ⟦ t ∷ σ ⟧* ρ = ⟦ t ⟧ ρ , ⟦ σ ⟧* ρ
-  ⟦ ↑ ⟧* (u , ρ) = ρ
+  ⟦ t ∷ σ ⟧* ρ = ⟦ t ⟧ ρ ∷ ⟦ σ ⟧* ρ
+  ⟦ ↑ ⟧* (u ∷ ρ) = ρ
+
+--
+-- Reflection and reification.
+--
+
+mutual
+
+  reflect : ∀ {α Γ} (n : Ne Nf Γ α) → Val Γ α
+  reflect {⋆} n = n
+  reflect {α ⇒ β} n = λ Δ u → reflect (app (wkNeNf Δ n) (reify u))
+
+  reify : ∀ {α Γ} (u : Val Γ α) → Nf Γ α
+  reify {⋆} n = ne n
+  reify {α ⇒ β} f = lam (reify (f (α ∷ []) (reflect (var vz))))
