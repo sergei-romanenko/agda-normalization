@@ -19,8 +19,6 @@
 
 -}
 
---{-# OPTIONS --no-positivity-check #-}
-
 module CoquandDybjer-STLC-norm where
 
 open import Algebra using (module Monoid)
@@ -72,6 +70,7 @@ data Env (T : Ctx → Ty → Set) (Γ : Ctx) : Ctx → Set where
   [] : Env T Γ []
   _∷_ : ∀ {Δ α} (v : T Γ α) (ρ : Env T Γ Δ) → Env T Γ (α ∷ Δ)
 
+
 --
 -- Terms and substitutions.
 --
@@ -93,7 +92,7 @@ mutual
 
   data Sub : (Γ Δ : Ctx) → Set where
     ı   : ∀ {Γ} → Sub Γ Γ
-    _⊙_ : ∀ {Γ Δ Σ} (σ : Sub Γ Δ) (σ′ : Sub Σ Γ) → Sub Σ Δ
+    _⊙_ : ∀ {Γ Δ Σ} (σ : Sub Δ Γ) (σ′ : Sub Σ Δ) → Sub Σ Γ
     _∷_ : ∀ {α Γ Δ} (t : Tm Γ α) (σ : Sub Γ Δ) → Sub Γ (α ∷ Δ)
     ↑  : ∀ {α Γ} → Sub (α ∷ Γ) Γ
 
@@ -121,14 +120,51 @@ K-SKK α β = K ∙ (S ∙ K ∙ K {β = α})
 III : Tm [] (⋆ ⇒ ⋆)
 III = I {⋆ ⇒ ⋆} ∙ (I {⋆ ⇒ ⋆} ∙ I {⋆})
 
-
 --
--- Weak head normal forms.
+-- Variables.
 --
 
 data Var : Ctx → Ty → Set where
   vz : ∀ {α Γ} → Var (α ∷ Γ) α
   vs : ∀ {α β Γ} (x : Var Γ α) → Var (β ∷ Γ) α
+
+--
+-- Renamings.
+--
+
+Ren : (Γ Δ : Ctx) → Set
+Ren = Env Var
+
+-- Weakening of renamings.
+
+wkRen : ∀ {Γ Δ α} (ρ : Ren Γ Δ) → Ren (α ∷ Γ) Δ
+wkRen [] = []
+wkRen (x ∷ ρ) = vs x ∷ wkRen ρ 
+
+wkRen* : ∀ {Γ Δ} Σ (ρ : Ren Γ Δ) → Ren (Σ ++ Γ) Δ
+wkRen* [] ρ = ρ
+wkRen* (α ∷ Σ) ρ = wkRen (wkRen* Σ ρ)
+
+-- Identity.
+
+idRen : ∀ {Γ} → Ren Γ Γ
+idRen {[]} = []
+idRen {α ∷ Γ} = vz ∷ wkRen idRen
+
+-- Lifting of renamings.
+
+liftRen : ∀ {α Γ Δ} → Ren Γ Δ → Ren (α ∷ Γ) (α ∷ Δ)
+liftRen ρ = vz ∷ wkRen ρ
+
+-- Applying renamings to variables.
+
+renVar : ∀ {Γ Δ α} (x : Var Δ α) (ρ : Ren Γ Δ) → Var Γ α
+renVar vz (y ∷ ρ) = y
+renVar (vs x) (y ∷ ρ) = renVar x ρ
+
+--
+-- Weak head normal forms.
+--
 
 data Ne (T : Ctx → Ty → Set) : Ctx → Ty → Set where
   var : ∀ {α Γ} (x : Var Γ α) → Ne T Γ α
@@ -234,8 +270,24 @@ mutual
   embNf (ne n) = embNe n
   embNf (lam m) = ƛ embNf m
 
-postulate
-  wkNeNf : ∀ {α Γ} Δ (u : Ne Nf Γ α) → Ne Nf (Δ ++ Γ) α
+--
+-- Applying renamings to normal forms.
+--
+
+mutual
+
+  renNe : ∀ {Γ Δ α} (n : Ne Nf Δ α) (ρ : Ren Γ Δ) → Ne Nf Γ α
+  renNe (var x) ρ = var (renVar x ρ)
+  renNe (app n u) ρ = app (renNe n ρ) (renNf u ρ)
+
+  renNf : ∀ {Γ Δ α} (m : Nf Δ α) (ρ : Ren Γ Δ) → Nf Γ α
+  renNf (ne n) ρ = ne (renNe n ρ)
+  renNf (lam m) ρ = lam (renNf m (liftRen ρ))
+
+-- Weakening of Ne Nf.
+
+wkNe* : ∀ {α Γ} Δ (n : Ne Nf Γ α) → Ne Nf (Δ ++ Γ) α
+wkNe* Δ n = renNe n (wkRen* Δ idRen)
 
 --
 -- Values.
@@ -244,13 +296,16 @@ postulate
 Val : Ctx → Ty → Set
 Val Γ ⋆ = Ne Nf Γ ⋆
 Val Γ (α ⇒ β) = ∀ Δ → Val (Δ ++ Γ) α → Val (Δ ++ Γ) β
---Val Γ (α ⇒ β) = Val Γ α → Val Γ β
+
+-- Value environments.
 
 VEnv : Ctx → Ctx → Set
 VEnv = Env Val
 
+-- Weakening of values.
+
 wkVal* : ∀ {α Γ} Δ (u : Val Γ α) → Val (Δ ++ Γ) α
-wkVal* {⋆} Δ n = wkNeNf Δ n
+wkVal* {⋆} Δ n = wkNe* Δ n
 wkVal* {α ⇒ β} {Γ} Δ f = λ Δ′ v →
   let
     ⟨_⟩₁ : Val (Δ′ ++ Δ ++ Γ) α → Val ((Δ′ ++ Δ) ++ Γ) α
@@ -259,9 +314,11 @@ wkVal* {α ⇒ β} {Γ} Δ f = λ Δ′ v →
     ⟨_⟩₂ = subst (flip Val β) (CtxMonoid.assoc Δ′ Δ Γ)
   in ⟨ f (Δ′ ++ Δ) ⟨ v ⟩₁ ⟩₂
 
-wkVEnv : ∀ {Γ Δ} Σ (ρ : VEnv Γ Δ) → VEnv (Σ ++ Γ) Δ
-wkVEnv Σ [] = []
-wkVEnv {Γ} {α ∷ Δ} Σ (u ∷ ρ) = wkVal* Σ u ∷ wkVEnv Σ ρ
+-- Weakening of value environments.
+
+wkVEnv* : ∀ {Γ Δ} Σ (ρ : VEnv Γ Δ) → VEnv (Σ ++ Γ) Δ
+wkVEnv* Σ [] = []
+wkVEnv* {Γ} {α ∷ Δ} Σ (u ∷ ρ) = wkVal* Σ u ∷ wkVEnv* Σ ρ
 
 --
 -- Evaluation: terms to values.
@@ -277,7 +334,7 @@ mutual
   ⟦_⟧_ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : VEnv Γ Δ) → Val Γ α
   ⟦ ø ⟧ (u ∷ ρ) = u
   ⟦ t ∙ t′ ⟧ ρ = ⟦ t ⟧ ρ ⟨∙⟩ ⟦ t′ ⟧ ρ
-  ⟦ ƛ t ⟧ ρ = λ Δ u → ⟦ t ⟧ (u ∷ wkVEnv Δ ρ)
+  ⟦ ƛ t ⟧ ρ = λ Δ u → ⟦ t ⟧ (u ∷ wkVEnv* Δ ρ)
   ⟦ t [ σ ] ⟧ ρ = ⟦ t ⟧ (⟦ σ ⟧* ρ)
 
   ⟦_⟧*_ : ∀ {Γ Δ Σ} (σ : Sub Δ Σ) (ρ : VEnv Γ Δ) → VEnv Γ Σ
@@ -294,8 +351,35 @@ mutual
 
   reflect : ∀ {α Γ} (n : Ne Nf Γ α) → Val Γ α
   reflect {⋆} n = n
-  reflect {α ⇒ β} n = λ Δ u → reflect (app (wkNeNf Δ n) (reify u))
+  reflect {α ⇒ β} n = λ Δ u → reflect (app (wkNe* Δ n) (reify u))
 
   reify : ∀ {α Γ} (u : Val Γ α) → Nf Γ α
   reify {⋆} n = ne n
   reify {α ⇒ β} f = lam (reify (f (α ∷ []) (reflect (var vz))))
+
+--
+-- Normalisation.
+--
+
+idVEnv : ∀ {Γ} → VEnv Γ Γ
+idVEnv {[]} = []
+idVEnv {α ∷ Γ} = reflect (var vz) ∷ wkVEnv* (α ∷ []) idVEnv
+
+⟪_⟫ : ∀ {α Γ} (u : Val Γ α) → Tm Γ α
+⟪ u ⟫ = embNf (reify u)
+
+norm : ∀ {α Γ} (t : Tm Γ α) → Tm Γ α
+norm t = ⟪ ⟦ t ⟧ idVEnv ⟫
+
+--
+-- Examples.
+--
+
+norm-III : norm III ≡ (ƛ ø)
+norm-III = refl
+
+norm-SKK : norm (SKK {⋆}) ≡ (ƛ ø)
+norm-SKK = refl
+
+norm-SKK∙I : norm (SKK ∙ I {⋆})  ≡ (ƛ ø)
+norm-SKK∙I = refl
