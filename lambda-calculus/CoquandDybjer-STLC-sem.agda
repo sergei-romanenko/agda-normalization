@@ -88,7 +88,7 @@ data _≈_  : ∀ {α Γ} (t₁ t₂ : Tm Γ α) → Set where
                t₁ ≈ t₂ → u₁ ≈ u₂ → t₁ ∙ u₁ ≈ t₂ ∙ u₂
   ≈[]-cong : ∀ {α Γ Δ} {t₁ t₂ : Tm Δ α } {σ₁ σ₂ : Sub Γ Δ} →
                t₁ ≈ t₂ → σ₁ ≃ σ₂ → t₁ [ σ₁ ] ≈ t₂ [ σ₂ ]
-  ≈λ-cong  : ∀ {α β Γ} {t₁ t₂ : Tm (α ∷ Γ) β} →
+  ≈ƛ-cong  : ∀ {α β Γ} {t₁ t₂ : Tm (α ∷ Γ) β} →
                t₁ ≈ t₂ → (ƛ t₁) ≈ (ƛ t₂)
   ≈proj  : ∀ {α Γ Δ} {t : Tm Γ α } {σ : Sub Γ Δ} →
              ø [ t ∷ σ ] ≈ t
@@ -128,3 +128,122 @@ module ≃-Reasoning {Γ} {Δ} = EqReasoning (≃setoid {Γ} {Δ})
     ; trans = ≈trans } }
 
 module ≈-Reasoning {Γ} {α : Ty} = EqReasoning (≈setoid {Γ} {α})
+
+--
+-- Completeness: the normal forms of two convertible terms are equal
+--     t₁ ≈ t₂ → norm t₁ ≡ norm t₂
+--
+
+postulate
+  reify∘⟨∙⟩ : ∀ {α β Γ Δ} (t : Tm Δ (α ⇒ β)) (u : Tm Δ α) (ρ : VEnv Γ Δ) →
+    ⟪ ⟦ t ⟧ ρ ⟨∙⟩ ⟦ u ⟧ ρ ⟫ ≡ ⟪ ⟦ t ⟧ ρ ⟫ ∙ ⟪ ⟦ u ⟧ ρ ⟫
+
+postulate
+  complete≃ : ∀ {Γ Δ Σ} {σ₁ σ₂ : Sub Δ Σ} {ρ : VEnv Γ Δ} →
+    σ₁ ≃ σ₂ → ⟦ σ₁ ⟧* ρ ≡ ⟦ σ₂ ⟧* ρ
+
+mutual
+
+  wkVEnv∘⟦⟧* : ∀ {Γ Δ Δ′} Σ (σ : Sub Δ Δ′) (ρ : VEnv Γ Δ) →
+    wkVEnv* Σ (⟦ σ ⟧* ρ) ≡ ⟦ σ ⟧* (wkVEnv* Σ ρ)
+  wkVEnv∘⟦⟧* Σ ı ρ = refl
+  wkVEnv∘⟦⟧* Σ (σ₁ ⊙ σ₂) ρ = begin
+    wkVEnv* Σ (⟦ σ₁ ⟧* (⟦ σ₂ ⟧* ρ))
+      ≡⟨ wkVEnv∘⟦⟧* Σ σ₁ (⟦ σ₂ ⟧* ρ) ⟩
+    ⟦ σ₁ ⟧* (wkVEnv* Σ (⟦ σ₂ ⟧* ρ))
+      ≡⟨ cong ⟦ σ₁ ⟧* (wkVEnv∘⟦⟧* Σ σ₂ ρ) ⟩
+    ⟦ σ₁ ⟧* (⟦ σ₂ ⟧* (wkVEnv* Σ ρ))
+    ∎
+    where open ≡-Reasoning
+  wkVEnv∘⟦⟧* Σ (t ∷ σ) ρ = begin
+    wkVal* Σ (⟦ t ⟧ ρ) ∷ wkVEnv* Σ (⟦ σ ⟧* ρ)
+      ≡⟨ cong₂ _∷_ (wkVal*∘⟦⟧ Σ t ρ) (wkVEnv∘⟦⟧* Σ σ ρ) ⟩
+    (⟦ t ⟧ (wkVEnv* Σ ρ)) ∷ (⟦ σ ⟧* (wkVEnv* Σ ρ))
+    ∎
+    where open ≡-Reasoning
+  wkVEnv∘⟦⟧* Σ ↑ (v ∷ ρ) = refl
+
+  wkVal*∘⟦⟧ : ∀ {α Γ Δ} Σ (t : Tm Δ α) (ρ : VEnv Γ Δ) →
+    wkVal* Σ (⟦ t ⟧ ρ) ≡ ⟦ t ⟧ (wkVEnv* Σ ρ)
+  --wkVal*∘⟦⟧ Σ t ρ = {!!}
+  wkVal*∘⟦⟧ Σ ø (v ∷ ρ) = refl
+  wkVal*∘⟦⟧ {β} {Γ} Σ (t₁ ∙ t₂) ρ = begin
+    wkVal* Σ (⟦ t₁ ⟧ ρ ⟨∙⟩ ⟦ t₂ ⟧ ρ)
+      ≡⟨⟩
+    wkVal* Σ (⟦ t₁ ⟧ ρ [] (⟦ t₂ ⟧ ρ))
+      ≡⟨ wkVal*∘$ Σ (⟦ t₁ ⟧ ρ) (⟦ t₂ ⟧ ρ) ⟩
+    ⟦ t₁ ⟧ ρ Σ (wkVal* Σ (⟦ t₂ ⟧ ρ))
+      ≡⟨⟩
+    wkVal* Σ (⟦ t₁ ⟧ ρ) ⟨∙⟩ wkVal* Σ (⟦ t₂ ⟧ ρ)
+      ≡⟨ cong₂ _⟨∙⟩_ (wkVal*∘⟦⟧ Σ t₁ ρ) (wkVal*∘⟦⟧ Σ t₂ ρ) ⟩
+    ⟦ t₁ ⟧ (wkVEnv* Σ ρ) ⟨∙⟩ ⟦ t₂ ⟧ (wkVEnv* Σ ρ)
+    ∎
+    where open ≡-Reasoning
+  wkVal*∘⟦⟧ Σ (ƛ t) ρ =
+    wkVal* Σ (⟦ ƛ t ⟧ ρ) ≡ ⟦ ƛ t ⟧ (wkVEnv* Σ ρ) ∋
+    {!!}
+  wkVal*∘⟦⟧ Σ (t [ σ ]) ρ = begin
+    wkVal* Σ (⟦ t ⟧ (⟦ σ ⟧* ρ))
+      ≡⟨ wkVal*∘⟦⟧ Σ t (⟦ σ ⟧* ρ) ⟩
+    ⟦ t ⟧ (wkVEnv* Σ (⟦ σ ⟧* ρ))
+      ≡⟨ cong ⟦ t ⟧ (wkVEnv∘⟦⟧* Σ σ ρ) ⟩
+    ⟦ t ⟧ (⟦ σ ⟧* (wkVEnv* Σ ρ))
+    ∎
+    where open ≡-Reasoning
+
+  wkVal*∘$ : ∀ {α β Γ} Σ → (u₁ : Val Γ (α ⇒ β)) (u₂ : Val Γ α) →
+    wkVal* {β} {Γ} Σ (u₁ [] u₂) ≡ u₁ Σ (wkVal* {α} {Γ} Σ u₂)
+  wkVal*∘$ {α} {β} {Γ} Σ u₁ u₂ = {!!}
+
+complete : ∀ {Γ Δ α} {t₁ t₂ : Tm Δ α} →
+  t₁ ≈ t₂ → ∀ (ρ : VEnv Γ Δ) → ⟪ ⟦ t₁ ⟧ ρ ⟫ ≡ ⟪ ⟦ t₂ ⟧ ρ ⟫
+complete ≈refl ρ =
+  refl
+complete (≈sym t₁≈t₂) ρ =
+  sym (complete t₁≈t₂ ρ)
+complete (≈trans t₁≈t₂ t₂≈t₃) ρ =
+  trans (complete t₁≈t₂ ρ) (complete t₂≈t₃ ρ)
+complete (≈∙-cong {α} {β} {Γ} {t₁} {t₂} {u₁} {u₂} t₁≈t₂ u₁≈u₂) ρ = begin
+  ⟪ ⟦ t₁ ⟧ ρ ⟨∙⟩ ⟦ u₁ ⟧ ρ ⟫
+    ≡⟨ reify∘⟨∙⟩ t₁ u₁ ρ ⟩
+  ⟪ ⟦ t₁ ⟧ ρ ⟫ ∙ ⟪ ⟦ u₁ ⟧ ρ ⟫
+    ≡⟨ cong₂ _∙_ (complete t₁≈t₂ ρ) (complete u₁≈u₂ ρ) ⟩
+  ⟪ ⟦ t₂ ⟧ ρ ⟫ ∙ ⟪ ⟦ u₂ ⟧ ρ ⟫
+    ≡⟨ sym $ reify∘⟨∙⟩ t₂ u₂ ρ ⟩
+  ⟪ ⟦ t₂ ⟧ ρ ⟨∙⟩ ⟦ u₂ ⟧ ρ ⟫
+  ∎
+  where open ≡-Reasoning
+complete (≈[]-cong {α} {Γ} {Δ} {t₁} {t₂} {σ₁} {σ₂} t₁≈t₂ σ₁≃σ₂) ρ = begin
+    ⟪ ⟦ t₁ ⟧ (⟦ σ₁ ⟧* ρ) ⟫
+      ≡⟨ cong (λ ρ′ → ⟪ ⟦ t₁ ⟧ ρ′ ⟫) (complete≃ σ₁≃σ₂) ⟩
+    ⟪ ⟦ t₁ ⟧ (⟦ σ₂ ⟧* ρ) ⟫
+      ≡⟨ complete t₁≈t₂ (⟦ σ₂ ⟧* ρ) ⟩
+    ⟪ ⟦ t₂ ⟧ (⟦ σ₂ ⟧* ρ) ⟫
+  ∎
+  where open ≡-Reasoning
+complete (≈ƛ-cong {α} {β} {Γ} {t₁} {t₂} t₁≈t₂) ρ =
+  cong ƛ_ (complete t₁≈t₂ (reflect (var vz) ∷ wkVEnv ρ))
+complete ≈proj ρ =
+  refl
+complete ≈id ρ =
+  refl
+complete ≈comp ρ =
+  refl
+complete (≈lam {α} {β} {Γ} {Δ} {t} {σ}) ρ =
+  begin
+    ƛ ⟪ ⟦ t ⟧ (reflect (var vz) ∷ wkVEnv (⟦ σ ⟧* ρ)) ⟫
+      ≡⟨ cong (λ ρ′ → ƛ ⟪ ⟦ t ⟧ (reflect (var vz) ∷ ρ′) ⟫)
+              (wkVEnv∘⟦⟧* (α ∷ []) σ ρ)  ⟩
+    ƛ ⟪ ⟦ t ⟧ (reflect (var vz) ∷ ⟦ σ ⟧* (wkVEnv ρ)) ⟫
+  ∎
+  where open ≡-Reasoning
+complete ≈app ρ =
+  refl
+
+norm′ : ∀ {α Γ} (t : Tm Γ α) (ρ : VEnv Γ Γ) → Tm Γ α
+norm′ t ρ = ⟪ ⟦ t ⟧ ρ ⟫
+
+norm-complete : ∀ {Γ α} {t₁ t₂ : Tm Γ α} →
+  t₁ ≈ t₂ → norm t₁ ≡ norm t₂
+norm-complete t₁≈t₂ =
+  complete t₁≈t₂ idVEnv

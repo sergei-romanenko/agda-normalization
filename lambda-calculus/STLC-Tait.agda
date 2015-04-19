@@ -498,7 +498,7 @@ data _≃_  : ∀ {α Γ} (x y : Tm Γ α) → Set where
              x ≃ y → y ≃ z → x ≃ z
   ≃η     : ∀ {α β Γ} {x : Tm Γ (α ⇒ β)} →
              x ≃ (ƛ (x [ ↑ ] ∙ ø))
-  λ-cong : ∀ {α β Γ} {x y : Tm (α ∷ Γ) β} →
+  ƛ-cong : ∀ {α β Γ} {x y : Tm (α ∷ Γ) β} →
              x ≃ y → (ƛ x) ≃ (ƛ y)
 
 
@@ -601,8 +601,9 @@ mutual
     wk-scv u p (γ ∷ Σ) , wk-sce ρ q (γ ∷ Σ)
 
 
-val⌈⌉∘[↑] : ∀ {α β Γ} (u : Val Γ (α ⇒ β)) → val⌈ u ⌉ [ ↑ ] ≃ val⌈ wk-val u ⌉
-val⌈⌉∘[↑] (lam t ρ) = {!!}
+val⌈⌉∘[↑] : ∀ {α β γ Γ} (u : Val Γ (α ⇒ β)) →
+  val⌈ u ⌉ [ ↑ {γ} ] ≃ val⌈ wk-val u ⌉
+val⌈⌉∘[↑] (lam t ρ) = {!ƛ-cong!}
 val⌈⌉∘[↑] (ne n) = {!!}
 
 mutual
@@ -642,4 +643,5 @@ val⌈ u ⌉ [ ↑ ] ≃ val⌈ wk-val u ⌉
     QNe n ⇓ m → ne-val⌈ n ⌉ ≃ ne-nf⌈ m ⌉ → SCV (ne n)
   ⌈⌉→scv {⋆} n m ⇓m n≃m =
     m , ⇓m , n≃m
-  ⌈⌉→scv {α ⇒ β} n m ⇓m n≃m Δ u p = {!!}
+  ⌈⌉→scv {α ⇒ β} n m ⇓m n≃m Δ u p =
+    {!!} , {!!}

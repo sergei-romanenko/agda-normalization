@@ -314,11 +314,17 @@ wkVal* {α ⇒ β} {Γ} Δ f = λ Δ′ v →
     ⟨_⟩₂ = subst (flip Val β) (CtxMonoid.assoc Δ′ Δ Γ)
   in ⟨ f (Δ′ ++ Δ) ⟨ v ⟩₁ ⟩₂
 
+wkVal : ∀ {γ α Γ} (u : Val Γ α) → Val (γ ∷ Γ) α
+wkVal {γ} u = wkVal* (γ ∷ []) u
+
 -- Weakening of value environments.
 
 wkVEnv* : ∀ {Γ Δ} Σ (ρ : VEnv Γ Δ) → VEnv (Σ ++ Γ) Δ
 wkVEnv* Σ [] = []
 wkVEnv* {Γ} {α ∷ Δ} Σ (u ∷ ρ) = wkVal* Σ u ∷ wkVEnv* Σ ρ
+
+wkVEnv : ∀ {γ Γ Δ} (ρ : VEnv Γ Δ) → VEnv (γ ∷ Γ) Δ
+wkVEnv {γ} ρ = wkVEnv* (γ ∷ []) ρ
 
 --
 -- Evaluation: terms to values.
@@ -331,13 +337,13 @@ t ⟨∙⟩ t′ = t [] t′
 
 mutual
 
-  ⟦_⟧_ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : VEnv Γ Δ) → Val Γ α
+  ⟦_⟧ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : VEnv Γ Δ) → Val Γ α
   ⟦ ø ⟧ (u ∷ ρ) = u
   ⟦ t ∙ t′ ⟧ ρ = ⟦ t ⟧ ρ ⟨∙⟩ ⟦ t′ ⟧ ρ
   ⟦ ƛ t ⟧ ρ = λ Δ u → ⟦ t ⟧ (u ∷ wkVEnv* Δ ρ)
   ⟦ t [ σ ] ⟧ ρ = ⟦ t ⟧ (⟦ σ ⟧* ρ)
 
-  ⟦_⟧*_ : ∀ {Γ Δ Σ} (σ : Sub Δ Σ) (ρ : VEnv Γ Δ) → VEnv Γ Σ
+  ⟦_⟧* : ∀ {Γ Δ Σ} (σ : Sub Δ Σ) (ρ : VEnv Γ Δ) → VEnv Γ Σ
   ⟦ ı ⟧* ρ = ρ
   ⟦ σ ⊙ σ′ ⟧* ρ = ⟦ σ ⟧* (⟦ σ′ ⟧* ρ)
   ⟦ t ∷ σ ⟧* ρ = ⟦ t ⟧ ρ ∷ ⟦ σ ⟧* ρ
@@ -363,7 +369,7 @@ mutual
 
 idVEnv : ∀ {Γ} → VEnv Γ Γ
 idVEnv {[]} = []
-idVEnv {α ∷ Γ} = reflect (var vz) ∷ wkVEnv* (α ∷ []) idVEnv
+idVEnv {α ∷ Γ} = reflect (var vz) ∷ wkVEnv idVEnv
 
 ⟪_⟫ : ∀ {α Γ} (u : Val Γ α) → Tm Γ α
 ⟪ u ⟫ = embNf (reify u)
