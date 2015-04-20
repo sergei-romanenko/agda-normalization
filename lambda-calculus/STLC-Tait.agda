@@ -65,7 +65,10 @@ Ctx = List Ty
 
 mutual
 
-  infixl 5 _∙_ _[_]
+  infixl 6 _[_]
+  infixr 6 _⊙_
+  infixr 5 _∷_
+  infixl 5 _∙_
   infixr 3 ƛ_
 
   -- Terms.
@@ -483,24 +486,98 @@ module StrongComputability-Bad where
          u , ⇓u , q = all-sc t ρ′
        in u , []⇓ ⇓ρ′ ⇓u , q
 
+
 --
 -- Convertibility.
 --
 
-infix 4 _≃_
+infix 4 _≈_ _≃_
 
-data _≃_  : ∀ {α Γ} (x y : Tm Γ α) → Set where
-  ≃refl  : ∀ {α Γ} {x : Tm Γ α} →
-             x ≃ x
-  ≃sym   : ∀ {α Γ} {x y : Tm Γ α} →
-             x ≃ y → y ≃ x
-  ≃trans : ∀ {α Γ} {x y z : Tm Γ α} →
-             x ≃ y → y ≃ z → x ≃ z
-  ≃η     : ∀ {α β Γ} {x : Tm Γ (α ⇒ β)} →
-             x ≃ (ƛ (x [ ↑ ] ∙ ø))
-  ƛ-cong : ∀ {α β Γ} {x y : Tm (α ∷ Γ) β} →
-             x ≃ y → (ƛ x) ≃ (ƛ y)
+mutual
 
+  -- σ₁ ≃ σ₂
+
+  data _≃_ : ∀ {Γ Δ} (σ₁ σ₂ : Sub Γ Δ) → Set where
+    ≃refl  : ∀ {Γ Δ} {σ : Sub Γ Δ} →
+               σ ≃ σ
+    ≃sym   : ∀ {Γ Δ} {σ₁ σ₂ : Sub Γ Δ} →
+               σ₁ ≃ σ₂ → σ₂ ≃ σ₁
+    ≃trans : ∀ {Γ Δ} {σ₁ σ₂ σ₃ : Sub Γ Δ} →
+               σ₁ ≃ σ₂ → σ₂ ≃ σ₃ → σ₁ ≃ σ₃
+    ≃⊙-cong  : ∀ {Γ Δ Σ} {σ₁ σ₂ : Sub Δ Γ} {τ₁ τ₂ : Sub Σ Δ} →
+                 σ₁ ≃ σ₂ → τ₁ ≃ τ₂ → σ₁ ⊙ τ₁ ≃ σ₂ ⊙ τ₂
+    ≃∷-cong  : ∀ {α Γ Δ} {t₁ t₂ : Tm Δ α} {σ₁ σ₂ : Sub Δ Γ} →
+                 t₁ ≈ t₂ → σ₁ ≃ σ₂ → t₁ ∷ σ₁ ≃ t₂ ∷ σ₂
+    ≃assoc : ∀ {Γ Δ Δ′ Σ} {σ₁ : Sub Δ Γ} {σ₂ : Sub Δ′ Δ} {σ₃ : Sub Σ Δ′} →
+               (σ₁ ⊙ σ₂) ⊙ σ₃ ≃ σ₁ ⊙ (σ₂ ⊙ σ₃)
+    ≃idl   : ∀ {Γ Δ} {σ : Sub Γ Δ} →
+               ı ⊙ σ ≃ σ
+    ≃idr   : ∀ {Γ Δ} {σ : Sub Γ Δ} →
+               σ ⊙ ı ≃ σ
+    ≃wk    : ∀ {α Γ Δ} {σ : Sub Γ Δ} {t : Tm Γ α} →
+               ↑ ⊙ (t ∷ σ) ≃ σ
+    ≃cons  : ∀ {α Γ Δ Σ} {σ : Sub Δ Γ} {t : Tm Δ α} {σ′ : Sub Σ Δ} →
+               (t ∷ σ) ⊙ σ′ ≃ t [ σ′ ] ∷ (σ ⊙ σ′)
+    ≃id∷   : ∀ {α Γ} →
+               ı {α ∷ Γ} ≃ ø ∷ (ı ⊙ ↑)
+
+  -- t₁ ≈ t₂
+
+  data _≈_  : ∀ {α Γ} (t₁ t₂ : Tm Γ α) → Set where
+    ≈refl  : ∀ {α Γ} {t : Tm Γ α} →
+               t ≈ t
+    ≈sym   : ∀ {α Γ} {t₁ t₂ : Tm Γ α} →
+               t₁ ≈ t₂ → t₂ ≈ t₁
+    ≈trans : ∀ {α Γ} {t₁ t₂ t₃ : Tm Γ α} →
+               t₁ ≈ t₂ → t₂ ≈ t₃ → t₁ ≈ t₃
+    ≈∙-cong  : ∀ {α β Γ} {t₁ t₂ : Tm Γ (α ⇒ β)} {u₁ u₂ : Tm Γ α} →
+                 t₁ ≈ t₂ → u₁ ≈ u₂ → t₁ ∙ u₁ ≈ t₂ ∙ u₂
+    ≈[]-cong : ∀ {α Γ Δ} {t₁ t₂ : Tm Δ α } {σ₁ σ₂ : Sub Γ Δ} →
+                 t₁ ≈ t₂ → σ₁ ≃ σ₂ → t₁ [ σ₁ ] ≈ t₂ [ σ₂ ]
+    ≈ƛ-cong  : ∀ {α β Γ} {t₁ t₂ : Tm (α ∷ Γ) β} →
+                 t₁ ≈ t₂ → (ƛ t₁) ≈ (ƛ t₂)
+    ≈proj  : ∀ {α Γ Δ} {t : Tm Γ α } {σ : Sub Γ Δ} →
+               ø [ t ∷ σ ] ≈ t
+    ≈id    : ∀ {α Γ} {t : Tm Γ α} →
+               t [ ı ] ≈ t
+    ≈comp  : ∀ {α Γ Δ Σ} {t : Tm Δ α} {σ : Sub Γ Δ} {σ′ : Sub Σ Γ} →
+               t [ σ ⊙ σ′ ] ≈ t [ σ ] [ σ′ ]
+    ≈lam   : ∀ {α β Γ Δ} {t : Tm (α ∷ Δ) β} {σ : Sub Γ Δ} →
+               (ƛ t) [ σ ] ≈ (ƛ t [ ø ∷ (σ ⊙ ↑) ])
+    ≈app   : ∀ {α β Γ Δ} {t₁ : Tm Δ (α ⇒ β)} {t₂ : Tm Δ α} {σ : Sub Γ Δ} →
+               (t₁ ∙ t₂) [ σ ] ≈ t₁ [ σ ] ∙ t₂ [ σ ]
+    ≈βσ    : ∀ {α β Γ Δ} {t : Tm (α ∷ Δ) (α ⇒ β)} {σ : Sub Γ Δ} {t′ : Tm Γ α} →
+               (ƛ t) [ σ ] ∙ t′ ≈ t [ t′ ∷ σ ]
+    ≈η     : ∀ {α β Γ} {t : Tm Γ (α ⇒ β)} →
+               t ≈ (ƛ (t [ ↑ ] ∙ ø))
+
+-- ≃-Reasoning
+
+≃setoid : {Γ Δ : Ctx} → Setoid _ _
+
+≃setoid {Γ} {Δ} = record
+  { Carrier = Sub Γ Δ
+  ; _≈_ = _≃_
+  ; isEquivalence = record
+    { refl = ≃refl
+    ; sym = ≃sym
+    ; trans = ≃trans } }
+
+module ≃-Reasoning {Γ} {Δ} = EqReasoning (≃setoid {Γ} {Δ})
+
+-- ≈-Reasoning
+
+≈setoid : {Γ : Ctx} {α : Ty} → Setoid _ _
+
+≈setoid {Γ} {α} = record
+  { Carrier = Tm Γ α
+  ; _≈_ = _≈_
+  ; isEquivalence = record
+    { refl = ≈refl
+    ; sym = ≈sym
+    ; trans = ≈trans } }
+
+module ≈-Reasoning {Γ} {α : Ty} = EqReasoning (≈setoid {Γ} {α})
 
 --
 -- "Strong computability". (A failed attempt.)
@@ -509,10 +586,10 @@ data _≃_  : ∀ {α Γ} (x y : Tm Γ α) → Set where
 SCV : ∀ {α Γ} (u : Val Γ α) → Set
 SCV {⋆} (ne n) = ∃ λ m →
   QNe n ⇓ m
-  × ne-val⌈ n ⌉ ≃ ne-nf⌈ m ⌉ 
+  × ne-val⌈ n ⌉ ≈ ne-nf⌈ m ⌉ 
 SCV {α ⇒ β} {Γ} u = ∀ Δ v → SCV v →
   ∃ λ w → wk-val* Δ u ⟨∙⟩ v ⇓ w
-    × val⌈ wk-val* Δ u ⌉ ∙ val⌈ v ⌉ ≃ val⌈ w ⌉
+    × val⌈ wk-val* Δ u ⌉ ∙ val⌈ v ⌉ ≈ val⌈ w ⌉
     × SCV w
 
 SCE : ∀ {Γ Δ} (ρ : Env Γ Δ) → Set
@@ -600,48 +677,105 @@ mutual
   wk-sce  {Γ} {α ∷ Δ} (u ∷ ρ) (p , q) (γ ∷ Σ) rewrite wk-env*∷ Σ u ρ =
     wk-scv u p (γ ∷ Σ) , wk-sce ρ q (γ ∷ Σ)
 
+mutual
 
-val⌈⌉∘[↑] : ∀ {α β γ Γ} (u : Val Γ (α ⇒ β)) →
-  val⌈ u ⌉ [ ↑ {γ} ] ≃ val⌈ wk-val u ⌉
-val⌈⌉∘[↑] (lam t ρ) = {!ƛ-cong!}
-val⌈⌉∘[↑] (ne n) = {!!}
+  ne-val⌈⌉∘[↑] : ∀ {α γ Γ} (n : Ne Val Γ α) →
+    ne-val⌈ n ⌉ [ ↑ {γ} ] ≈ ne-val⌈ wk-ne n ⌉
+  ne-val⌈⌉∘[↑] (var x) = ≈refl
+  ne-val⌈⌉∘[↑] (app n u) = begin
+    (ne-val⌈ n ⌉ ∙ val⌈ u ⌉) [ ↑ ]
+      ≈⟨ ≈app ⟩
+    ne-val⌈ n ⌉ [ ↑ ] ∙ val⌈ u ⌉ [ ↑ ]
+      ≈⟨ ≈∙-cong (ne-val⌈⌉∘[↑] n) (val⌈⌉∘[↑] u) ⟩
+    ne-val⌈ wk-ne n ⌉ ∙ val⌈ wk-val u ⌉
+    ∎
+    where open ≈-Reasoning
+
+  val⌈⌉∘[↑] : ∀ {α γ Γ} (u : Val Γ α) →
+    val⌈ u ⌉ [ ↑ {γ} ] ≈ val⌈ wk-val {α} u ⌉
+  val⌈⌉∘[↑] (lam t ρ) = begin
+    (ƛ t [ ø ∷ (env⌈ ρ ⌉ ⊙ ↑) ]) [ ↑ ]
+      ≈⟨ ≈lam ⟩
+    ƛ t [ ø ∷ (env⌈ ρ ⌉ ⊙ ↑) ] [ ø ∷ (↑ ⊙ ↑) ]
+      ≈⟨ ≈sym (≈ƛ-cong ≈comp) ⟩
+    ƛ t [ (ø ∷ (env⌈ ρ ⌉ ⊙ ↑)) ⊙ (ø ∷ (↑ ⊙ ↑)) ]
+      ≈⟨ ≈ƛ-cong (≈[]-cong ≈refl (val⌈⌉∘[↑]′ env⌈ ρ ⌉)) ⟩
+    ƛ t [ ø ∷ (env⌈ ρ ⌉ ⊙ ↑) ⊙ ↑ ]
+      ≈⟨ ≈ƛ-cong (≈[]-cong ≈refl (≃∷-cong ≈refl (≃⊙-cong (env⌈⌉∘⊙↑ ρ) ≃refl))) ⟩
+    ƛ t [ ø ∷ env⌈ wk-env ρ ⌉ ⊙ ↑ ]
+    ∎
+    where open ≈-Reasoning
+  val⌈⌉∘[↑] (ne n) =
+    ne-val⌈⌉∘[↑] n
+
+  val⌈⌉∘[↑]′ : ∀ {α β Γ Δ} (σ : Sub Γ Δ) →
+    (ø ∷ σ ⊙ ↑) ⊙ (ø ∷ ↑ {α} ⊙ ↑ {β}) ≃ ø ∷ (σ ⊙ ↑) ⊙ ↑
+  val⌈⌉∘[↑]′ σ = begin
+    (ø ∷ σ ⊙ ↑) ⊙ (ø ∷ ↑ ⊙ ↑)
+      ≈⟨ ≃cons ⟩
+    ø [ ø ∷ ↑ ⊙ ↑ ] ∷ (σ ⊙ ↑) ⊙ (ø ∷ ↑ ⊙ ↑)
+      ≈⟨ ≃∷-cong ≈proj ≃assoc ⟩
+    ø ∷ σ ⊙ (↑ ⊙ (ø ∷ ↑ ⊙ ↑))
+      ≈⟨ ≃∷-cong ≈refl (≃⊙-cong ≃refl ≃wk) ⟩
+    ø ∷ σ ⊙ (↑ ⊙ ↑)
+      ≈⟨ ≃∷-cong ≈refl (≃sym ≃assoc) ⟩
+    ø ∷ (σ ⊙ ↑) ⊙ ↑
+    ∎
+    where open ≃-Reasoning
+
+  env⌈⌉∘⊙↑ : ∀ {γ Γ Δ} (ρ : Env Γ Δ) →
+    env⌈ ρ ⌉ ⊙ ↑ {γ} ≃ env⌈ wk-env ρ ⌉
+  env⌈⌉∘⊙↑ [] = ≃refl
+  env⌈⌉∘⊙↑ (u ∷ ρ) = begin
+    (val⌈ u ⌉ ∷ env⌈ ρ ⌉) ⊙ ↑
+      ≈⟨ ≃cons ⟩
+    val⌈ u ⌉ [ ↑ ] ∷ env⌈ ρ ⌉ ⊙ ↑
+      ≈⟨ ≃∷-cong (val⌈⌉∘[↑] u) (env⌈⌉∘⊙↑ ρ) ⟩
+    val⌈ wk-val u ⌉ ∷ env⌈ wk-env ρ ⌉
+    ∎
+    where open ≃-Reasoning
+
 
 mutual
 
   scv→⌈⌉ : ∀ {α Γ} (u : Val Γ α) → SCV u →
-    ∃ λ m → QVal u ⇓ m × val⌈ u ⌉ ≃ nf⌈ m ⌉
-  scv→⌈⌉ {⋆} (ne n) (m , ⇓m , n≃m) =
-    ne m , ⋆⇓ n ⇓m , n≃m
+    ∃ λ m → QVal u ⇓ m × val⌈ u ⌉ ≈ nf⌈ m ⌉
+  scv→⌈⌉ {⋆} (ne n) (m , ⇓m , n≈m) =
+    ne m , ⋆⇓ n ⇓m , n≈m
   scv→⌈⌉ {α ⇒ β} {Γ} u p =
     let
       r : SCV {α} {α ∷ Γ} (ne (var vz))
-      r = ⌈⌉→scv (var vz) (var vz) var⇓ ≃refl
+      r = ⌈⌉→scv (var vz) (var vz) var⇓ ≈refl
       pvzr : ∃ λ v → wk-val u ⟨∙⟩ ne (var vz) ⇓ v
-        × val⌈ wk-val u ⌉ ∙ ø ≃ val⌈ v ⌉
+        × val⌈ wk-val u ⌉ ∙ ø ≈ val⌈ v ⌉
         × SCV {β} {α ∷ Γ} v
       pvzr = p (α ∷ []) (ne (var vz)) r
-      v , ⇓v , ≃⌈v⌉ , q = pvzr
-      vq : ∃ λ m → QVal v ⇓ m × val⌈ v ⌉ ≃ nf⌈ m ⌉
+      v , ⇓v , ≈⌈v⌉ , q = pvzr
+      vq : ∃ λ m → QVal v ⇓ m × val⌈ v ⌉ ≈ nf⌈ m ⌉
       vq = scv→⌈⌉ {β} v q
-      m , v⇓m , ⌈v⌉≃⌈m⌉ = vq
+      m , v⇓m , ⌈v⌉≈⌈m⌉ = vq
       ⇓lam-m : QVal u ⇓ lam m
       ⇓lam-m = ⇒⇓ ⇓v v⇓m
-      xxx : val⌈ wk-val u ⌉ ∙ ø ≃ nf⌈ m ⌉
-      xxx = ≃trans ≃⌈v⌉ ⌈v⌉≃⌈m⌉
-    in lam m , ⇓lam-m
-           , (val⌈ u ⌉ ≃ nf⌈ lam m ⌉ ∋ {!!})
-             --≃trans (≃sym {!cong val⌈_⌉!}) {!!}
-{-
-val⌈ u ⌉ ≃ ƛ val⌈ u ⌉ [ ↑ ] ∙ ø ≃
-ƛ val⌈ wk-val u ⌉ ∙ ø ≃
-ƛ val⌈ v ⌉ ≃ ƛ nf⌈ m ⌉ ≃ nf⌈ lam m ⌉
-
-val⌈ u ⌉ [ ↑ ] ≃ val⌈ wk-val u ⌉
--}
+      val≈nf : val⌈ u ⌉ ≈ nf⌈ lam m ⌉
+      val≈nf = begin
+        val⌈ u ⌉
+          ≈⟨ ≈η ⟩
+        ƛ val⌈ u ⌉ [ ↑ ] ∙ ø
+          ≈⟨ ≈ƛ-cong (≈∙-cong (val⌈⌉∘[↑] u) ≈refl) ⟩
+        ƛ val⌈ wk-val u ⌉ ∙ ø
+          ≈⟨ ≈ƛ-cong ≈⌈v⌉ ⟩
+        ƛ val⌈ v ⌉
+          ≈⟨ ≈ƛ-cong ⌈v⌉≈⌈m⌉ ⟩
+        ƛ nf⌈ m ⌉
+          ≡⟨⟩
+        nf⌈ lam m ⌉
+        ∎
+    in lam m , ⇓lam-m , val≈nf
+    where open ≈-Reasoning
 
   ⌈⌉→scv : ∀ {α Γ} (n : Ne Val Γ α) (m : Ne Nf Γ α) →
-    QNe n ⇓ m → ne-val⌈ n ⌉ ≃ ne-nf⌈ m ⌉ → SCV (ne n)
-  ⌈⌉→scv {⋆} n m ⇓m n≃m =
-    m , ⇓m , n≃m
-  ⌈⌉→scv {α ⇒ β} n m ⇓m n≃m Δ u p =
+    QNe n ⇓ m → ne-val⌈ n ⌉ ≈ ne-nf⌈ m ⌉ → SCV (ne n)
+  ⌈⌉→scv {⋆} n m ⇓m n≈m =
+    m , ⇓m , n≈m
+  ⌈⌉→scv {α ⇒ β} n m ⇓m n≈m Δ u p =
     {!!} , {!!}
