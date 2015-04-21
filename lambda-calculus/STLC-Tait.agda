@@ -32,6 +32,7 @@ open import Data.Unit
 open import Data.Product
 
 open import Function
+--import Function.Related as Related
 
 open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality as P
@@ -225,40 +226,40 @@ data Nf (Γ : Ctx) : Ty → Set where
 
 mutual
 
-  wk-ne : ∀ {α β Γ} (n : Ne Val Γ α) → Ne Val (β ∷ Γ) α
-  wk-ne (var x) = var (vs x)
-  wk-ne (app n u) = app (wk-ne n) (wk-val u)
+  wkNe : ∀ {α β Γ} (n : Ne Val Γ α) → Ne Val (β ∷ Γ) α
+  wkNe (var x) = var (vs x)
+  wkNe (app n u) = app (wkNe n) (wkVal u)
 
-  wk-val : ∀ {α β Γ} (u : Val Γ α) → Val (β ∷ Γ) α
-  wk-val (lam t ρ) = lam t (wk-env ρ)
-  wk-val (ne n) = ne (wk-ne n)
+  wkVal : ∀ {α β Γ} (u : Val Γ α) → Val (β ∷ Γ) α
+  wkVal (lam t ρ) = lam t (wkEnv ρ)
+  wkVal (ne n) = ne (wkNe n)
 
-  wk-env : ∀ {α Γ Δ} (ρ : Env Γ Δ) → Env (α ∷ Γ) Δ
-  wk-env [] = []
-  wk-env (u ∷ ρ) = wk-val u ∷ wk-env ρ
+  wkEnv : ∀ {α Γ Δ} (ρ : Env Γ Δ) → Env (α ∷ Γ) Δ
+  wkEnv [] = []
+  wkEnv (u ∷ ρ) = wkVal u ∷ wkEnv ρ
 
 
 -- We can iterate weakenings using contexts.
 
-wk-ne* : ∀ {α} Δ {Γ} (n : Ne Val Γ α) → Ne Val (Δ ++ Γ) α
-wk-ne* [] n = n
-wk-ne* (α ∷ Δ) n = wk-ne (wk-ne* Δ n)
+wkNe* : ∀ {α} Δ {Γ} (n : Ne Val Γ α) → Ne Val (Δ ++ Γ) α
+wkNe* [] n = n
+wkNe* (α ∷ Δ) n = wkNe (wkNe* Δ n)
 
-wk-val* : ∀ {α} Δ {Γ} (u : Val Γ α) → Val (Δ ++ Γ) α
-wk-val* [] u = u
-wk-val* (α ∷ Δ) u = wk-val (wk-val* Δ u)
+wkVal* : ∀ {α} Δ {Γ} (u : Val Γ α) → Val (Δ ++ Γ) α
+wkVal* [] u = u
+wkVal* (α ∷ Δ) u = wkVal (wkVal* Δ u)
 
-wk-env* : ∀ {Δ} Σ {Γ} (ρ : Env Γ Δ) → Env (Σ ++ Γ) Δ
-wk-env* [] ρ = ρ
-wk-env* (α ∷ Σ) ρ = wk-env (wk-env* Σ ρ)
+wkEnv* : ∀ {Δ} Σ {Γ} (ρ : Env Γ Δ) → Env (Σ ++ Γ) Δ
+wkEnv* [] ρ = ρ
+wkEnv* (α ∷ Σ) ρ = wkEnv (wkEnv* Σ ρ)
 
 --
 -- Embedding of values and normal forms into terms.
 --
 
-var⌈_⌉ : ∀ {α Γ} (x : Var Γ α) → Tm Γ α
-var⌈ vz ⌉ = ø
-var⌈ vs x ⌉ = var⌈ x ⌉ [ ↑ ]
+embVar : ∀ {α Γ} (x : Var Γ α) → Tm Γ α
+embVar vz = ø
+embVar (vs x) = embVar x [ ↑ ]
 
 sub-from-[] : ∀ {Γ} → Sub Γ []
 sub-from-[] {[]} = ı
@@ -266,34 +267,34 @@ sub-from-[] {α ∷ Γ} = sub-from-[] ⊙ ↑
 
 mutual
 
-  ne-val⌈_⌉ : ∀ {α Γ} (n : Ne Val Γ α) → Tm Γ α
-  ne-val⌈ var x ⌉ = var⌈ x ⌉
-  ne-val⌈ app n u ⌉ = ne-val⌈ n ⌉ ∙ val⌈ u ⌉
+  embNeVal : ∀ {α Γ} (n : Ne Val Γ α) → Tm Γ α
+  embNeVal (var x) = embVar x
+  embNeVal (app n u) = embNeVal n ∙ embVal u
 
-  val⌈_⌉ : ∀ {α Γ} (u : Val Γ α) → Tm Γ α
-  val⌈ lam t ρ ⌉ =
-    ƛ t [ ø ∷ (env⌈ ρ ⌉ ⊙ ↑) ]
-  val⌈ ne n ⌉ = ne-val⌈ n ⌉
+  embVal : ∀ {α Γ} (u : Val Γ α) → Tm Γ α
+  embVal (lam t ρ) =
+    ƛ t [ ø ∷ (embEnv ρ ⊙ ↑) ]
+  embVal (ne n) = embNeVal n
 
-  env⌈_⌉ : ∀ {Γ Δ} (ρ : Env Γ Δ) → Sub Γ Δ
-  env⌈ [] ⌉ = sub-from-[]
-  env⌈ u ∷ ρ ⌉ = val⌈ u ⌉ ∷ env⌈ ρ ⌉
+  embEnv : ∀ {Γ Δ} (ρ : Env Γ Δ) → Sub Γ Δ
+  embEnv [] = sub-from-[]
+  embEnv (u ∷ ρ) = embVal u ∷ embEnv ρ
 
 mutual
 
-  ne-nf⌈_⌉ : ∀ {α Γ} (n : Ne Nf Γ α) → Tm Γ α
-  ne-nf⌈ var x ⌉ = var⌈ x ⌉
-  ne-nf⌈ app n u ⌉ = ne-nf⌈ n ⌉ ∙ nf⌈ u ⌉
+  embNeNf : ∀ {α Γ} (n : Ne Nf Γ α) → Tm Γ α
+  embNeNf (var x) = embVar x
+  embNeNf (app n u) = embNeNf n ∙ embNf u
 
-  nf⌈_⌉ : ∀ {α Γ} (m : Nf Γ α) → Tm Γ α
-  nf⌈ lam m ⌉ = ƛ nf⌈ m ⌉
-  nf⌈ ne n ⌉ = ne-nf⌈ n ⌉
+  embNf : ∀ {α Γ} (m : Nf Γ α) → Tm Γ α
+  embNf (lam m) = ƛ embNf m
+  embNf (ne n) = embNeNf n
 
 -- Identity environments.
 
 id-env : ∀ {Γ} → Env Γ Γ
 id-env {[]} = []
-id-env {α ∷ Γ} = ne (var vz) ∷ wk-env id-env
+id-env {α ∷ Γ} = ne (var vz) ∷ wkEnv id-env
 
 -- Quote.
 
@@ -307,7 +308,7 @@ module NaiveQuote where
     q-val : ∀ {α Γ} (u : Val Γ α) → Nf Γ α
     q-val {⋆} (ne n) = ne (q-ne n)
     q-val {α ⇒ β} f =
-      lam (q-val (wk-val f ⟨∙⟩ ne (var vz)))
+      lam (q-val (wkVal f ⟨∙⟩ ne (var vz)))
 
     q-ne : ∀ {α Γ} (n : Ne Val Γ α) → Ne Nf Γ α
     q-ne (var x) = var x
@@ -372,7 +373,7 @@ mutual
       (p : QNe n ⇓ n′) →
       QVal (ne n) ⇓ ne n′
     ⇒⇓ : ∀ {α β Γ} {f : Val Γ (α ⇒ β)} {u u′} →
-      (p : wk-val f ⟨∙⟩ ne (var vz) ⇓ u) (q : QVal u ⇓ u′) →
+      (p : wkVal f ⟨∙⟩ ne (var vz) ⇓ u) (q : QVal u ⇓ u′) →
       QVal f ⇓ lam u′
 
   data QNe_⇓_ : ∀ {α Γ} → Ne Val Γ α → Ne Nf Γ α → Set where
@@ -586,10 +587,10 @@ module ≈-Reasoning {Γ} {α : Ty} = EqReasoning (≈setoid {Γ} {α})
 SCV : ∀ {α Γ} (u : Val Γ α) → Set
 SCV {⋆} (ne n) = ∃ λ m →
   QNe n ⇓ m
-  × ne-val⌈ n ⌉ ≈ ne-nf⌈ m ⌉ 
+  × embNeVal n ≈ embNeNf m
 SCV {α ⇒ β} {Γ} u = ∀ Δ v → SCV v →
-  ∃ λ w → wk-val* Δ u ⟨∙⟩ v ⇓ w
-    × val⌈ wk-val* Δ u ⌉ ∙ val⌈ v ⌉ ≈ val⌈ w ⌉
+  ∃ λ w → wkVal* Δ u ⟨∙⟩ v ⇓ w
+    × embVal (wkVal* Δ u) ∙ embVal v ≈ embVal w
     × SCV w
 
 SCE : ∀ {Γ Δ} (ρ : Env Γ Δ) → Set
@@ -610,33 +611,33 @@ _/∷/_ : {Γ₁ Γ₂ : Ctx} (α : Ty) (p : Γ₁ ≡ Γ₂) →
 _/Val/_ : ∀ {Γ₁ Γ₂ α} → Γ₁ ≡ Γ₂ → Val Γ₁ α → Val Γ₂ α
 refl /Val/ u = u
 
-/Val/∘wk-val : ∀ {Γ₁ Γ₂ α τ} (p : Γ₁ ≡ Γ₂) (u : Val Γ₁ τ) →
-  (α /∷/ p) /Val/ wk-val u ≡ wk-val (p /Val/ u)
-/Val/∘wk-val refl v = refl
+/Val/∘wkVal : ∀ {Γ₁ Γ₂ α τ} (p : Γ₁ ≡ Γ₂) (u : Val Γ₁ τ) →
+  (α /∷/ p) /Val/ wkVal u ≡ wkVal (p /Val/ u)
+/Val/∘wkVal refl v = refl
 
 /∷/≡cong : ∀ {Γ₁ Γ₂} α (p : Γ₁ ≡ Γ₂) → α /∷/ p ≡ cong (_∷_ α) p
 /∷/≡cong α refl = refl
 
-wk-env*[] : ∀ Σ {Γ} → wk-env* Σ {Γ} [] ≡ []
-wk-env*[] [] = refl
-wk-env*[] (γ ∷ Σ) =
-  cong wk-env (wk-env*[] Σ)
+wkEnv*[] : ∀ Σ {Γ} → wkEnv* Σ {Γ} [] ≡ []
+wkEnv*[] [] = refl
+wkEnv*[] (γ ∷ Σ) =
+  cong wkEnv (wkEnv*[] Σ)
 
-wk-env*∷ : ∀ {α Δ} Σ {Γ} (u : Val Γ α) (ρ : Env Γ Δ) →
-  wk-env* Σ (u ∷ ρ) ≡ wk-val* Σ u ∷ wk-env* Σ ρ
-wk-env*∷ [] u ρ = refl
-wk-env*∷ (γ ∷ Σ) u ρ rewrite wk-env*∷ Σ u ρ = refl
+wkEnv*∷ : ∀ {α Δ} Σ {Γ} (u : Val Γ α) (ρ : Env Γ Δ) →
+  wkEnv* Σ (u ∷ ρ) ≡ wkVal* Σ u ∷ wkEnv* Σ ρ
+wkEnv*∷ [] u ρ = refl
+wkEnv*∷ (γ ∷ Σ) u ρ rewrite wkEnv*∷ Σ u ρ = refl
 
-wk-val*++ : ∀ {α} Δ Γ Σ u →
-  wk-val* Δ (wk-val* Γ u) ≡
-    LM.assoc Δ Γ Σ /Val/ wk-val* {α} (Δ ++ Γ) {Σ} u
-wk-val*++ [] Γ Σ u = refl
-wk-val*++ {α} (γ ∷ Δ) Γ Σ u rewrite wk-val*++ Δ Γ Σ u = begin
-  wk-val (LM.assoc Δ Γ Σ /Val/ wk-val* (Δ ++ Γ) u)
-    ≡⟨ sym $ /Val/∘wk-val (LM.assoc Δ Γ Σ) (wk-val* (Δ ++ Γ) u) ⟩
-  (γ /∷/ LM.assoc Δ Γ Σ) /Val/ wk-val (wk-val* (Δ ++ Γ) u)
+wkVal*++ : ∀ {α} Δ Γ Σ u →
+  wkVal* Δ (wkVal* Γ u) ≡
+    LM.assoc Δ Γ Σ /Val/ wkVal* {α} (Δ ++ Γ) {Σ} u
+wkVal*++ [] Γ Σ u = refl
+wkVal*++ {α} (γ ∷ Δ) Γ Σ u rewrite wkVal*++ Δ Γ Σ u = begin
+  wkVal (LM.assoc Δ Γ Σ /Val/ wkVal* (Δ ++ Γ) u)
+    ≡⟨ sym $ /Val/∘wkVal (LM.assoc Δ Γ Σ) (wkVal* (Δ ++ Γ) u) ⟩
+  (γ /∷/ LM.assoc Δ Γ Σ) /Val/ wkVal (wkVal* (Δ ++ Γ) u)
     ≡⟨ cong₂ _/Val/_ (/∷/≡cong γ (LM.assoc Δ Γ Σ)) refl ⟩
-  cong (_∷_ γ) (LM.assoc Δ Γ Σ) /Val/ wk-val (wk-val* (Δ ++ Γ) u)
+  cong (_∷_ γ) (LM.assoc Δ Γ Σ) /Val/ wkVal (wkVal* (Δ ++ Γ) u)
   ∎
   where open ≡-Reasoning
 
@@ -644,9 +645,9 @@ wk-val*++ {α} (γ ∷ Δ) Γ Σ u rewrite wk-val*++ Δ Γ Σ u = begin
 mutual
 
   postulate
-    wk-scv : ∀ {α Γ} (u : Val Γ α) → SCV u → ∀ Δ → SCV (wk-val* Δ u)
+    wk-scv : ∀ {α Γ} (u : Val Γ α) → SCV u → ∀ Δ → SCV (wkVal* Δ u)
   {-
-  wk-scv : ∀ {α Γ} (u : Val Γ α) → SCV u → ∀ Δ → SCV (wk-val* Δ u)
+  wk-scv : ∀ {α Γ} (u : Val Γ α) → SCV u → ∀ Δ → SCV (wkVal* Δ u)
   wk-scv {⋆} u p Δ = tt
   --wk-scv {α ⇒ β} {Γ} u p Δ Σ v q = {!!}
   wk-scv {α ⇒ β} {Γ} u p Δ Σ v q =
@@ -656,61 +657,61 @@ mutual
         q′ : SCV {α} {(Σ ++ Δ) ++ Γ} v′
         q′ = subst (λ z → SCV {α} {z} {!!}) (sym $ LM.assoc Σ Δ Γ) q
         --q′ = subst (λ z → SCV {α} {{!!}} {!v′!}) (sym $ LM.assoc Σ Δ Γ) q
-        r : ∃ λ w → wk-val* {!Σ ++ Δ!} u ⟨∙⟩ v ⇓ w × SCV w
+        r : ∃ λ w → wkVal* {!Σ ++ Δ!} u ⟨∙⟩ v ⇓ w × SCV w
         r = p {!Σ ++ Δ!} v′ q′
-        s : SCV (wk-val* (Σ ++ Δ) ((sym $ LM.assoc Σ Δ Γ) /Val/ v))
+        s : SCV (wkVal* (Σ ++ Δ) ((sym $ LM.assoc Σ Δ Γ) /Val/ v))
         s = wk-scv {α} {(Σ ++ Δ) ++ Γ} v′ q′ (Σ ++ Δ)
     in {!!}
   -}
 
   {-
-  wk-scv : ∀ {α Γ} (u : Val Γ α) → SCV u → ∀ Δ → SCV (wk-val* Δ u)
+  wk-scv : ∀ {α Γ} (u : Val Γ α) → SCV u → ∀ Δ → SCV (wkVal* Δ u)
   wk-scv {⋆} {Γ} (ne n) p Δ = {!!}
   wk-scv {α ⇒ β} {Γ} u p Δ Σ v q = {!!}
   wk-scv u p [] = p
   wk-scv u p (γ ∷ Δ) = {!!}
   -}
 
-  wk-sce : ∀ {Γ Δ} (ρ : Env Γ Δ) → SCE ρ → ∀ Σ → SCE (wk-env* Σ ρ)
+  wk-sce : ∀ {Γ Δ} (ρ : Env Γ Δ) → SCE ρ → ∀ Σ → SCE (wkEnv* Σ ρ)
   wk-sce ρ p [] = p
-  wk-sce {Γ} {[]} [] p (γ ∷ Σ) rewrite wk-env*[] Σ {Γ} = tt
-  wk-sce  {Γ} {α ∷ Δ} (u ∷ ρ) (p , q) (γ ∷ Σ) rewrite wk-env*∷ Σ u ρ =
+  wk-sce {Γ} {[]} [] p (γ ∷ Σ) rewrite wkEnv*[] Σ {Γ} = tt
+  wk-sce  {Γ} {α ∷ Δ} (u ∷ ρ) (p , q) (γ ∷ Σ) rewrite wkEnv*∷ Σ u ρ =
     wk-scv u p (γ ∷ Σ) , wk-sce ρ q (γ ∷ Σ)
 
 mutual
 
-  ne-val⌈⌉∘[↑] : ∀ {α γ Γ} (n : Ne Val Γ α) →
-    ne-val⌈ n ⌉ [ ↑ {γ} ] ≈ ne-val⌈ wk-ne n ⌉
-  ne-val⌈⌉∘[↑] (var x) = ≈refl
-  ne-val⌈⌉∘[↑] (app n u) = begin
-    (ne-val⌈ n ⌉ ∙ val⌈ u ⌉) [ ↑ ]
+  embNeVal∘[↑] : ∀ {α γ Γ} (n : Ne Val Γ α) →
+    embNeVal n [ ↑ {γ} ] ≈ embNeVal (wkNe n)
+  embNeVal∘[↑] (var x) = ≈refl
+  embNeVal∘[↑] (app n u) = begin
+    (embNeVal n ∙ embVal u) [ ↑ ]
       ≈⟨ ≈app ⟩
-    ne-val⌈ n ⌉ [ ↑ ] ∙ val⌈ u ⌉ [ ↑ ]
-      ≈⟨ ≈∙-cong (ne-val⌈⌉∘[↑] n) (val⌈⌉∘[↑] u) ⟩
-    ne-val⌈ wk-ne n ⌉ ∙ val⌈ wk-val u ⌉
+    embNeVal n [ ↑ ] ∙ embVal u [ ↑ ]
+      ≈⟨ ≈∙-cong (embNeVal∘[↑] n) (embVal∘[↑] u) ⟩
+    embNeVal (wkNe n) ∙ embVal (wkVal u)
     ∎
     where open ≈-Reasoning
 
-  val⌈⌉∘[↑] : ∀ {α γ Γ} (u : Val Γ α) →
-    val⌈ u ⌉ [ ↑ {γ} ] ≈ val⌈ wk-val {α} u ⌉
-  val⌈⌉∘[↑] (lam t ρ) = begin
-    (ƛ t [ ø ∷ (env⌈ ρ ⌉ ⊙ ↑) ]) [ ↑ ]
+  embVal∘[↑] : ∀ {α γ Γ} (u : Val Γ α) →
+    embVal u [ ↑ {γ} ] ≈ embVal (wkVal {α} u)
+  embVal∘[↑] (lam t ρ) = begin
+    (ƛ t [ ø ∷ (embEnv ρ ⊙ ↑) ]) [ ↑ ]
       ≈⟨ ≈lam ⟩
-    ƛ t [ ø ∷ (env⌈ ρ ⌉ ⊙ ↑) ] [ ø ∷ (↑ ⊙ ↑) ]
+    ƛ t [ ø ∷ (embEnv ρ ⊙ ↑) ] [ ø ∷ (↑ ⊙ ↑) ]
       ≈⟨ ≈sym (≈ƛ-cong ≈comp) ⟩
-    ƛ t [ (ø ∷ (env⌈ ρ ⌉ ⊙ ↑)) ⊙ (ø ∷ (↑ ⊙ ↑)) ]
-      ≈⟨ ≈ƛ-cong (≈[]-cong ≈refl (val⌈⌉∘[↑]′ env⌈ ρ ⌉)) ⟩
-    ƛ t [ ø ∷ (env⌈ ρ ⌉ ⊙ ↑) ⊙ ↑ ]
-      ≈⟨ ≈ƛ-cong (≈[]-cong ≈refl (≃∷-cong ≈refl (≃⊙-cong (env⌈⌉∘⊙↑ ρ) ≃refl))) ⟩
-    ƛ t [ ø ∷ env⌈ wk-env ρ ⌉ ⊙ ↑ ]
+    ƛ t [ (ø ∷ (embEnv ρ ⊙ ↑)) ⊙ (ø ∷ (↑ ⊙ ↑)) ]
+      ≈⟨ ≈ƛ-cong (≈[]-cong ≈refl (embVal∘[↑]′ (embEnv ρ))) ⟩
+    ƛ t [ ø ∷ (embEnv ρ ⊙ ↑) ⊙ ↑ ]
+      ≈⟨ ≈ƛ-cong (≈[]-cong ≈refl (≃∷-cong ≈refl (≃⊙-cong (embEnv∘⊙↑ ρ) ≃refl))) ⟩
+    ƛ t [ ø ∷ embEnv (wkEnv ρ) ⊙ ↑ ]
     ∎
     where open ≈-Reasoning
-  val⌈⌉∘[↑] (ne n) =
-    ne-val⌈⌉∘[↑] n
+  embVal∘[↑] (ne n) =
+    embNeVal∘[↑] n
 
-  val⌈⌉∘[↑]′ : ∀ {α β Γ Δ} (σ : Sub Γ Δ) →
+  embVal∘[↑]′ : ∀ {α β Γ Δ} (σ : Sub Γ Δ) →
     (ø ∷ σ ⊙ ↑) ⊙ (ø ∷ ↑ {α} ⊙ ↑ {β}) ≃ ø ∷ (σ ⊙ ↑) ⊙ ↑
-  val⌈⌉∘[↑]′ σ = begin
+  embVal∘[↑]′ σ = begin
     (ø ∷ σ ⊙ ↑) ⊙ (ø ∷ ↑ ⊙ ↑)
       ≈⟨ ≃cons ⟩
     ø [ ø ∷ ↑ ⊙ ↑ ] ∷ (σ ⊙ ↑) ⊙ (ø ∷ ↑ ⊙ ↑)
@@ -723,59 +724,106 @@ mutual
     ∎
     where open ≃-Reasoning
 
-  env⌈⌉∘⊙↑ : ∀ {γ Γ Δ} (ρ : Env Γ Δ) →
-    env⌈ ρ ⌉ ⊙ ↑ {γ} ≃ env⌈ wk-env ρ ⌉
-  env⌈⌉∘⊙↑ [] = ≃refl
-  env⌈⌉∘⊙↑ (u ∷ ρ) = begin
-    (val⌈ u ⌉ ∷ env⌈ ρ ⌉) ⊙ ↑
+  embEnv∘⊙↑ : ∀ {γ Γ Δ} (ρ : Env Γ Δ) →
+    embEnv ρ ⊙ ↑ {γ} ≃ embEnv (wkEnv ρ)
+  embEnv∘⊙↑ [] = ≃refl
+  embEnv∘⊙↑ (u ∷ ρ) = begin
+    (embVal u ∷ embEnv ρ) ⊙ ↑
       ≈⟨ ≃cons ⟩
-    val⌈ u ⌉ [ ↑ ] ∷ env⌈ ρ ⌉ ⊙ ↑
-      ≈⟨ ≃∷-cong (val⌈⌉∘[↑] u) (env⌈⌉∘⊙↑ ρ) ⟩
-    val⌈ wk-val u ⌉ ∷ env⌈ wk-env ρ ⌉
+    embVal u [ ↑ ] ∷ embEnv ρ ⊙ ↑
+      ≈⟨ ≃∷-cong (embVal∘[↑] u) (embEnv∘⊙↑ ρ) ⟩
+    embVal (wkVal u) ∷ embEnv (wkEnv ρ)
     ∎
     where open ≃-Reasoning
 
 
+wkVal*∘ne : ∀ {α β Γ} (n : Ne Val Γ (α ⇒ β)) Δ →
+  wkVal* Δ (ne n) ≡ ne (wkNe* Δ n)
+wkVal*∘ne n [] = refl
+wkVal*∘ne n (γ ∷ Δ) = begin
+  wkVal (wkVal* Δ (ne n))
+    ≡⟨ cong wkVal (wkVal*∘ne n Δ) ⟩
+  wkVal (ne (wkNe* Δ n))
+    ≡⟨⟩
+  ne (wkNe (wkNe* Δ n))
+  ∎
+  where open ≡-Reasoning
+
+wkVal*-ne : ∀ {α β Γ} (n : Ne Val Γ (α ⇒ β)) Δ u →
+  wkVal* Δ (ne n) ⟨∙⟩ u ⇓ ne (app (wkNe* Δ n) u)
+wkVal*-ne n Δ u rewrite wkVal*∘ne n Δ =
+  ne⇓
+
 mutual
 
   scv→⌈⌉ : ∀ {α Γ} (u : Val Γ α) → SCV u →
-    ∃ λ m → QVal u ⇓ m × val⌈ u ⌉ ≈ nf⌈ m ⌉
+    ∃ λ m → QVal u ⇓ m × embVal u ≈ embNf m
   scv→⌈⌉ {⋆} (ne n) (m , ⇓m , n≈m) =
     ne m , ⋆⇓ n ⇓m , n≈m
   scv→⌈⌉ {α ⇒ β} {Γ} u p =
     let
       r : SCV {α} {α ∷ Γ} (ne (var vz))
       r = ⌈⌉→scv (var vz) (var vz) var⇓ ≈refl
-      pvzr : ∃ λ v → wk-val u ⟨∙⟩ ne (var vz) ⇓ v
-        × val⌈ wk-val u ⌉ ∙ ø ≈ val⌈ v ⌉
+      pvzr : ∃ λ v → wkVal u ⟨∙⟩ ne (var vz) ⇓ v
+        × embVal (wkVal u) ∙ ø ≈ embVal v
         × SCV {β} {α ∷ Γ} v
       pvzr = p (α ∷ []) (ne (var vz)) r
       v , ⇓v , ≈⌈v⌉ , q = pvzr
-      vq : ∃ λ m → QVal v ⇓ m × val⌈ v ⌉ ≈ nf⌈ m ⌉
+      vq : ∃ λ m → QVal v ⇓ m × embVal v ≈ embNf m
       vq = scv→⌈⌉ {β} v q
       m , v⇓m , ⌈v⌉≈⌈m⌉ = vq
       ⇓lam-m : QVal u ⇓ lam m
       ⇓lam-m = ⇒⇓ ⇓v v⇓m
-      val≈nf : val⌈ u ⌉ ≈ nf⌈ lam m ⌉
+      val≈nf : embVal u ≈ embNf (lam m)
       val≈nf = begin
-        val⌈ u ⌉
+        embVal u
           ≈⟨ ≈η ⟩
-        ƛ val⌈ u ⌉ [ ↑ ] ∙ ø
-          ≈⟨ ≈ƛ-cong (≈∙-cong (val⌈⌉∘[↑] u) ≈refl) ⟩
-        ƛ val⌈ wk-val u ⌉ ∙ ø
+        ƛ embVal u [ ↑ ] ∙ ø
+          ≈⟨ ≈ƛ-cong (≈∙-cong (embVal∘[↑] u) ≈refl) ⟩
+        ƛ embVal (wkVal u) ∙ ø
           ≈⟨ ≈ƛ-cong ≈⌈v⌉ ⟩
-        ƛ val⌈ v ⌉
+        ƛ embVal v
           ≈⟨ ≈ƛ-cong ⌈v⌉≈⌈m⌉ ⟩
-        ƛ nf⌈ m ⌉
+        ƛ embNf m
           ≡⟨⟩
-        nf⌈ lam m ⌉
+        embNf (lam m)
         ∎
     in lam m , ⇓lam-m , val≈nf
     where open ≈-Reasoning
 
   ⌈⌉→scv : ∀ {α Γ} (n : Ne Val Γ α) (m : Ne Nf Γ α) →
-    QNe n ⇓ m → ne-val⌈ n ⌉ ≈ ne-nf⌈ m ⌉ → SCV (ne n)
+    QNe n ⇓ m → embNeVal n ≈ embNeNf m → SCV (ne n)
   ⌈⌉→scv {⋆} n m ⇓m n≈m =
     m , ⇓m , n≈m
-  ⌈⌉→scv {α ⇒ β} n m ⇓m n≈m Δ u p =
-    {!!} , {!!}
+  ⌈⌉→scv {α ⇒ β} {Γ} n m ⇓m n≈m Δ u p =
+    let
+      nu : Val (Δ ++ Γ) β
+      nu = ne (app (wkNe* Δ n) u)
+      ⇓nu : wkVal* Δ (ne n) ⟨∙⟩ u ⇓ ne (app (wkNe* Δ n) u)
+      ⇓nu = wkVal*-ne n Δ u
+      n≈n : embVal (wkVal* Δ (ne n)) ≈ embNeVal (wkNe* Δ n)
+      n≈n = begin
+        embVal (wkVal* Δ (ne n))
+          ≡⟨ cong embVal (wkVal*∘ne n Δ) ⟩
+        embVal (ne (wkNe* Δ n))
+          ≡⟨⟩
+        embNeVal (wkNe* Δ n)
+        ∎
+      nu≈nu : embVal (wkVal* Δ (ne n)) ∙ embVal u ≈
+              embNeVal (wkNe* Δ n) ∙ embVal u
+      nu≈nu = ≈∙-cong n≈n ≈refl
+      m′ , ⇓m′ , u≈m′ = ∃ (λ m′ → QVal u ⇓ m′ × embVal u ≈ embNf m′)
+        ∋ scv→⌈⌉ u p
+      yyy : SCV (wkVal* Δ (ne n))
+      yyy = wk-scv (ne n) {!p!} Δ
+      qqq : SCV {α ⇒ β} {Δ ++ Γ} (ne (wkNe* Δ n))
+      qqq = subst SCV (wkVal*∘ne n Δ) yyy
+      zzz : QNe app (wkNe* Δ n) u ⇓ app {!wkNe* Δ m!} m′
+      zzz = app⇓ {!!} ⇓m′
+      scv-nu : SCV {β} {Δ ++ Γ} (ne (app (wkNe* Δ n) u))
+      scv-nu = ⌈⌉→scv {β} {Δ ++ Γ} (app (wkNe* Δ n) u) (app {!!} m′) zzz
+                      (≈∙-cong {!!} u≈m′) 
+    in nu , ⇓nu , nu≈nu , scv-nu
+    where open ≈-Reasoning
+
+--   wkVal* Δ (ne n) ≡ ne (wkNe* Δ n)
