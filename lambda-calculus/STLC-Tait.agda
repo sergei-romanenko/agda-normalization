@@ -695,15 +695,19 @@ mutual
   embVal∘[↑] : ∀ {α γ Γ} (u : Val Γ α) →
     embVal u [ ↑ {γ} ] ≈ embVal (wkVal {α} u)
   embVal∘[↑] (lam t ρ) = begin
-    (ƛ t [ ø ∷ (embEnv ρ ⊙ ↑) ]) [ ↑ ]
+    embVal (lam t ρ) [ ↑ ]
+      ≡⟨⟩
+    (ƛ t [ ø ∷ embEnv ρ ⊙ ↑ ]) [ ↑ ]
       ≈⟨ ≈lam ⟩
-    ƛ t [ ø ∷ (embEnv ρ ⊙ ↑) ] [ ø ∷ (↑ ⊙ ↑) ]
+    ƛ t [ ø ∷ embEnv ρ ⊙ ↑ ] [ ø ∷ ↑ ⊙ ↑ ]
       ≈⟨ ≈sym (≈ƛ-cong ≈comp) ⟩
-    ƛ t [ (ø ∷ (embEnv ρ ⊙ ↑)) ⊙ (ø ∷ (↑ ⊙ ↑)) ]
+    ƛ t [ (ø ∷ embEnv ρ ⊙ ↑) ⊙ (ø ∷ ↑ ⊙ ↑) ]
       ≈⟨ ≈ƛ-cong (≈[]-cong ≈refl (embVal∘[↑]′ (embEnv ρ))) ⟩
     ƛ t [ ø ∷ (embEnv ρ ⊙ ↑) ⊙ ↑ ]
       ≈⟨ ≈ƛ-cong (≈[]-cong ≈refl (≃∷-cong ≈refl (≃⊙-cong (embEnv∘⊙↑ ρ) ≃refl))) ⟩
-    ƛ t [ ø ∷ embEnv (wkEnv ρ) ⊙ ↑ ]
+    (ƛ t [ ø ∷ embEnv (wkEnv ρ) ⊙ ↑ ])
+      ≡⟨⟩
+    embVal (wkVal (lam t ρ))
     ∎
     where open ≈-Reasoning
   embVal∘[↑] (ne n) =
