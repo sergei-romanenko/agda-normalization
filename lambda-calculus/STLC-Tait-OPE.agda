@@ -127,7 +127,7 @@ III = I {⋆ ⇒ ⋆} ∙ (I {⋆ ⇒ ⋆} ∙ I {⋆})
 -- A "denotational" semantics for `Tm α`.
 --
 
-module DenotationalNorm where
+module DenotationalEval where
 
   D : (α : Ty) → Set
   D ⋆ = ⊤
@@ -297,7 +297,7 @@ module NaiveEval where
     ⟦ t ∷ σ ⟧* ρ = ⟦ t ⟧ ρ ∷ ⟦ σ ⟧* ρ
     ⟦ ↑ ⟧* (u ∷ ρ) = ρ
 
-    _⟨∙⟩_ : ∀ {α β Γ} → Val Γ (α ⇒ β) → Val Γ α → Val Γ β
+    _⟨∙⟩_ : ∀ {α β Γ} (u : Val Γ (α ⇒ β)) (v : Val Γ α) → Val Γ β
     ne n ⟨∙⟩ v = ne (app n v)
     lam t ρ ⟨∙⟩ v = ⟦ t ⟧ (v ∷ ρ)
 
@@ -451,10 +451,10 @@ id-env {α ∷ Γ} = ne (var vz) ∷ wkEnv id-env
 
 
 --
--- Quote.
+-- Recursive normalizer.
 --
 
-module NaiveQuote where
+module NaiveNorm where
 
   open NaiveEval
 
@@ -470,17 +470,17 @@ module NaiveQuote where
     qNe (var x) = var x
     qNe (app n u) = app (qNe n) (qVal u)
 
-  norm : ∀ {α Γ} (t : Tm Γ α) → Nf Γ α
-  norm t = qVal (⟦ t ⟧ id-env)
+  nf : ∀ {α Γ} (t : Tm Γ α) → Nf Γ α
+  nf t = qVal (⟦ t ⟧ id-env)
 
-  norm-III : norm III ≡ lam (ne (var vz))
-  norm-III = refl
+  nf-III : nf III ≡ lam (ne (var vz))
+  nf-III = refl
 
-  norm-SKK : norm (SKK {⋆}) ≡ lam (ne (var vz))
-  norm-SKK = refl
+  nf-SKK : nf (SKK {⋆}) ≡ lam (ne (var vz))
+  nf-SKK = refl
 
-  norm-SKK∙I : norm (SKK ∙ I {⋆}) ≡ lam (ne (var vz))
-  norm-SKK∙I = refl
+  nf-SKK∙I : nf (SKK ∙ I {⋆}) ≡ lam (ne (var vz))
+  nf-SKK∙I = refl
 
 --
 -- Relational big-step semantics.
@@ -521,3 +521,44 @@ mutual
       (p : ⟦ t ⟧ (u ∷ ρ) ⇓ v) →
       lam t ρ ⟨∙⟩ u ⇓ v
 
+
+--
+-- Structurally recursive evaluator.
+--
+
+mutual
+
+  infix 4 ⟦_⟧_&_ ⟦_⟧*_&_
+  infixl 5 _⟨∙⟩_&_
+
+  ⟦_⟧_&_ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) {w : Val Γ α} →
+    ⟦ t ⟧ ρ ⇓ w → ∃ λ w′ → w′ ≡ w
+
+  ⟦ ø ⟧ u ∷ ρ & ø⇓ =
+    u , refl
+  ⟦ t ∙ t′ ⟧ ρ & ∙⇓ ⇓u ⇓v ⇓w with ⟦ t ⟧ ρ & ⇓u | ⟦ t′ ⟧ ρ & ⇓v
+  ... | u′ , refl | v′ , refl = u′ ⟨∙⟩ v′ & ⇓w
+  ⟦ ƛ t ⟧ ρ & ƛ⇓ =
+    lam t ρ , refl
+  ⟦ t [ σ ] ⟧ ρ & []⇓ ⇓ρ′ ⇓w with ⟦ σ ⟧* ρ & ⇓ρ′
+  ... | ρ′′ , refl = ⟦ t ⟧ ρ′′ & ⇓w
+
+  ⟦_⟧*_&_ : ∀ {B Γ Δ} (σ : Sub Γ Δ) (ρ : Env B Γ) {ρ′ : Env B Δ} →
+    ⟦ σ ⟧* ρ ⇓ ρ′ → ∃ λ ρ′′ → ρ′′ ≡ ρ′
+
+  ⟦ ı ⟧* ρ & ι⇓ =
+    ρ , refl
+  ⟦ σ₁ ⊙ σ₂ ⟧* ρ & ⊙⇓ ⇓ρ₂ ⇓ρ₁ with ⟦ σ₂ ⟧* ρ & ⇓ρ₂
+  ... | ρ′′ , refl = ⟦ σ₁ ⟧* ρ′′ & ⇓ρ₁
+  ⟦ t ∷ σ ⟧* ρ & ∷⇓ ⇓u ⇓ρ′ with ⟦ t ⟧ ρ & ⇓u | ⟦ σ ⟧* ρ & ⇓ρ′
+  ... | u′ , refl | ρ′′ , refl = u′ ∷ ρ′′ , refl
+  ⟦ ↑ ⟧* u ∷ ρ & ↑⇓ =
+    ρ , refl
+
+  _⟨∙⟩_&_ : ∀ {α β Γ} (u : Val Γ (α ⇒ β)) (v : Val Γ α) {w : Val Γ β} →
+    u ⟨∙⟩ v ⇓ w → ∃ λ w′ → w′ ≡ w
+
+  ne n ⟨∙⟩ v & ne⇓ =
+    ne (app n v) , refl
+  lam t ρ ⟨∙⟩ v & lam⇓ ⇓w =
+    ⟦ t ⟧ (v ∷ ρ) & ⇓w
