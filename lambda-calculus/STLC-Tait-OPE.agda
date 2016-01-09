@@ -610,3 +610,82 @@ SCV {α ⇒ β} {Γ} u = ∀ {Β} (η : Β ≤ Γ) (v : Val Β α) (q : SCV v) �
 SCE : ∀ {Γ Δ} (ρ : Env Γ Δ) → Set
 SCE [] = ⊤
 SCE (u ∷ ρ) = SCV u × SCE ρ
+
+--
+-- Weakening for SCV & SCE.
+
+-- Variables.
+
+var≤∘ : ∀ {α Γ₁ Γ₂ Γ₃}
+  (η : Γ₁ ≤ Γ₂) (η′ : Γ₂ ≤ Γ₃) (x : Var Γ₃ α) →
+  var≤ η (var≤ η′ x) ≡ var≤ (η ● η′) x
+var≤∘ ≤id η′ x = refl
+var≤∘ (≤weak η) η′ x = cong vs (var≤∘ η η′ x)
+var≤∘ (≤lift η) ≤id x = refl
+var≤∘ (≤lift η) (≤weak η′) x = cong vs (var≤∘ η η′ x)
+var≤∘ (≤lift η) (≤lift η′) vz = refl
+var≤∘ (≤lift η) (≤lift η′) (vs x) = cong vs (var≤∘ η η′ x)
+
+-- Values and environments.
+
+mutual
+
+  val≤∘ : ∀ {α Γ₁ Γ₂ Γ₃}
+    (η : Γ₁ ≤ Γ₂) (η′ : Γ₂ ≤ Γ₃) (u : Val Γ₃ α) →
+    val≤ η (val≤ η′ u) ≡ val≤ (η ● η′) u
+  val≤∘ η η′ (ne us) = cong ne (neVal≤∘ η η′ us)
+  val≤∘ η η′ (lam t ρ) = cong (lam t) (env≤∘ η η′ ρ)
+
+  neVal≤∘ : ∀ {α Γ₁ Γ₂ Γ₃}
+    (η : Γ₁ ≤ Γ₂) (η′ : Γ₂ ≤ Γ₃) (us : Ne Val Γ₃ α) →
+    neVal≤ η (neVal≤ η′ us) ≡ neVal≤ (η ● η′) us
+  neVal≤∘ η η′ (var x) =
+    cong var (var≤∘ η η′ x)
+  neVal≤∘ η η′ (app us u) =
+    cong₂ app (neVal≤∘ η η′ us) (val≤∘ η η′ u)
+
+  env≤∘ : ∀ {α Γ₁ Γ₂ Γ₃}
+    (η : Γ₁ ≤ Γ₂) (η′ : Γ₂ ≤ Γ₃) (ρ : Env Γ₃ α) →
+    env≤ η (env≤ η′ ρ) ≡ env≤ (η ● η′) ρ
+  env≤∘ η η′ [] = refl
+  env≤∘ η η′ (u ∷ ρ) =
+    cong₂ _∷_ (val≤∘ η η′ u) (env≤∘ η η′ ρ)
+
+postulate
+
+  qNeVal≤ : ∀ {α Β Γ} (η : Β ≤ Γ) (us : Ne Val Γ α) (ns : Ne Nf Γ α) →
+    (⇓ns : QNeVal us ⇓ ns) →
+      QNeVal neVal≤ η us ⇓ neNf≤ η ns
+
+  embNe≈≤ : ∀ {α Β Γ} (η : Β ≤ Γ) (us : Ne Val Γ α) (ns : Ne Nf Γ α) →
+    (p : embNeVal us ≈ embNeNf ns) →
+      embNeVal (neVal≤ η us) ≈ embNeNf (neNf≤ η ns)
+
+mutual
+
+  scv≤ :  ∀ {α Γ} (u : Val Γ α) (p : SCV u) →
+    ∀ {Β} (η : Β ≤ Γ) → SCV (val≤ η u)
+  scv≤ {⋆} (ne us) (ns , p , q) η =
+    neNf≤ η ns , qNeVal≤ η us ns p , embNe≈≤ η us ns q
+  scv≤ {α ⇒ β} {Γ} u p {Β} η {Β′} η′ v q with p (η′ ● η) v q
+  ... | w , ●⇓w , ●≈w , r =
+    w , ∘⇓w , ∘≈w≤ , r
+    where
+    open ≈-Reasoning
+    ∘≡● : val≤ η′ (val≤ η u) ≡ val≤ (η′ ● η) u
+    ∘≡● = val≤∘ η′ η u
+    ∘⇓w : val≤ η′ (val≤ η u) ⟨∙⟩ v ⇓ w
+    ∘⇓w = subst (λ f → f ⟨∙⟩ v ⇓ w) (sym $ ∘≡●) ●⇓w
+    ∘≈w≤ : embVal (val≤ η′ (val≤ η u)) ∙ embVal v ≈ embVal w
+    ∘≈w≤ = begin
+      embVal (val≤ η′ (val≤ η u)) ∙ embVal v
+        ≡⟨ cong₂ _∙_ (cong embVal (val≤∘ η′ η u)) refl ⟩
+      embVal (val≤ (η′ ● η) u) ∙ embVal v
+        ≈⟨ ●≈w ⟩
+      embVal w
+      ∎
+
+  sce≤ : ∀ {Γ Δ} (ρ : Env Γ Δ) (r : SCE ρ) →
+    ∀ {Β} (η : Β ≤ Γ) → SCE (env≤ η ρ)
+  sce≤ [] r η = tt
+  sce≤ (u ∷ ρ) (p , r) η = scv≤ u p η , sce≤ ρ r η
