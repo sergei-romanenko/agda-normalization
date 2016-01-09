@@ -270,7 +270,7 @@ data Ne (T : Ctx → Ty → Set) : Ctx → Ty → Set where
 mutual
 
   data Val : Ctx → Ty → Set where
-    ne  : ∀ {α Γ} (n : Ne Val Γ α) → Val Γ α
+    ne  : ∀ {α Γ} (us : Ne Val Γ α) → Val Γ α
     lam : ∀ {α β Γ Δ} (t : Tm (α ∷ Δ) β) (ρ : Env Γ Δ) → Val Γ (α ⇒ β)
 
   data Env (Γ : Ctx) : Ctx → Set where
@@ -298,8 +298,8 @@ module NaiveEval where
     ⟦ ↑ ⟧* (u ∷ ρ) = ρ
 
     _⟨∙⟩_ : ∀ {α β Γ} (u : Val Γ (α ⇒ β)) (v : Val Γ α) → Val Γ β
-    ne n ⟨∙⟩ v = ne (app n v)
-    lam t ρ ⟨∙⟩ v = ⟦ t ⟧ (v ∷ ρ)
+    ne us ⟨∙⟩ u = ne (app us u)
+    lam t ρ ⟨∙⟩ u = ⟦ t ⟧ (u ∷ ρ)
 
   ⟦III⟧ : ⟦ III ⟧ ([] {[]}) ≡ lam ø []
   ⟦III⟧ = refl
@@ -318,8 +318,8 @@ module NaiveEval where
 --
 
 data Nf (Γ : Ctx) : Ty → Set where
-  ne  : ∀ (n : Ne Nf Γ ⋆) → Nf Γ ⋆
-  lam : ∀ {α β} (m : Nf (α ∷ Γ) β) → Nf Γ (α ⇒ β)
+  ne  : ∀ (ns : Ne Nf Γ ⋆) → Nf Γ ⋆
+  lam : ∀ {α β} (n : Nf (α ∷ Γ) β) → Nf Γ (α ⇒ β)
 
 
 --
@@ -336,14 +336,14 @@ sub-from-[] {α ∷ Γ} = sub-from-[] ⊙ ↑
 
 mutual
 
-  embNeVal : ∀ {α Γ} (n : Ne Val Γ α) → Tm Γ α
+  embNeVal : ∀ {α Γ} (us : Ne Val Γ α) → Tm Γ α
   embNeVal (var x) = embVar x
-  embNeVal (app n u) = embNeVal n ∙ embVal u
+  embNeVal (app us u) = embNeVal us ∙ embVal u
 
   embVal : ∀ {α Γ} (u : Val Γ α) → Tm Γ α
   embVal (lam t ρ) =
     ƛ t [ ø ∷ (embEnv ρ ⊙ ↑) ]
-  embVal (ne n) = embNeVal n
+  embVal (ne us) = embNeVal us
 
   embEnv : ∀ {Γ Δ} (ρ : Env Γ Δ) → Sub Γ Δ
   embEnv [] = sub-from-[]
@@ -351,13 +351,13 @@ mutual
 
 mutual
 
-  embNeNf : ∀ {α Γ} (n : Ne Nf Γ α) → Tm Γ α
+  embNeNf : ∀ {α Γ} (ns : Ne Nf Γ α) → Tm Γ α
   embNeNf (var x) = embVar x
-  embNeNf (app n u) = embNeNf n ∙ embNf u
+  embNeNf (app ns n) = embNeNf ns ∙ embNf n
 
-  embNf : ∀ {α Γ} (m : Nf Γ α) → Tm Γ α
-  embNf (lam m) = ƛ embNf m
-  embNf (ne n) = embNeNf n
+  embNf : ∀ {α Γ} (n : Nf Γ α) → Tm Γ α
+  embNf (lam n) = ƛ embNf n
+  embNf (ne ns) = embNeNf ns
 
 
 --
@@ -394,24 +394,24 @@ var≤ (≤lift η) (vs x) = vs (var≤ η x)
 mutual
 
   val≤ : ∀ {Γ Δ} (η : Γ ≤ Δ) {α} (u : Val Δ α) → Val Γ α
-  val≤ η (ne n) = ne (neVal≤ η n)
+  val≤ η (ne us) = ne (neVal≤ η us)
   val≤ η (lam t ρ) = lam t (env≤ η ρ)
 
-  neVal≤ : ∀ {Γ Δ} (η : Γ ≤ Δ) {α} (n : Ne Val Δ α) → Ne Val Γ α
+  neVal≤ : ∀ {Γ Δ} (η : Γ ≤ Δ) {α} (us : Ne Val Δ α) → Ne Val Γ α
   neVal≤ η (var x) = var (var≤ η x)
-  neVal≤ η (app n u) = app (neVal≤ η n) (val≤ η u)
+  neVal≤ η (app us u) = app (neVal≤ η us) (val≤ η u)
 
   env≤ : ∀ {Γ Δ} (η : Γ ≤ Δ) {α} (ρ : Env Δ α) → Env Γ α
   env≤ η [] = []
   env≤ η (u ∷ ρ) = val≤ η u ∷ env≤ η ρ
 
-  nf≤ : ∀ {Γ Δ} (η : Γ ≤ Δ) {α} (m : Nf Δ α) → Nf Γ α
-  nf≤ η (ne n) = ne (neNf≤ η n)
-  nf≤ η (lam m) = lam (nf≤ (≤lift η) m)
+  nf≤ : ∀ {Γ Δ} (η : Γ ≤ Δ) {α} (n : Nf Δ α) → Nf Γ α
+  nf≤ η (ne ns) = ne (neNf≤ η ns)
+  nf≤ η (lam n) = lam (nf≤ (≤lift η) n)
 
-  neNf≤ : ∀ {Γ Δ} (η : Γ ≤ Δ) {α} (n : Ne Nf Δ α) → Ne Nf Γ α
+  neNf≤ : ∀ {Γ Δ} (η : Γ ≤ Δ) {α} (ns : Ne Nf Δ α) → Ne Nf Γ α
   neNf≤ η (var x) = var (var≤ η x)
-  neNf≤ η (app n u) = app (neNf≤ η n) (nf≤ η u)
+  neNf≤ η (app ns n) = app (neNf≤ η ns) (nf≤ η n)
 
 --
 -- Weakening
@@ -420,7 +420,7 @@ mutual
 wk : ∀ {α Γ} → α ∷ Γ ≤ Γ
 wk = ≤weak ≤id
 
-wkNeVal : ∀ {α β Γ} (n : Ne Val Γ α) → Ne Val (β ∷ Γ) α
+wkNeVal : ∀ {α β Γ} (us : Ne Val Γ α) → Ne Val (β ∷ Γ) α
 wkNeVal = neVal≤ wk
 
 wkVal : ∀ {α β Γ} (u : Val Γ α) → Val (β ∷ Γ) α
@@ -431,9 +431,9 @@ wkEnv = env≤ wk
 
 -- We can iterate weakenings using contexts.
 
-wkNeVal* : ∀ {α} Δ {Γ} (n : Ne Val Γ α) → Ne Val (Δ ++ Γ) α
-wkNeVal* [] n = n
-wkNeVal* (α ∷ Δ) n = wkNeVal (wkNeVal* Δ n)
+wkNeVal* : ∀ {α} Δ {Γ} (us : Ne Val Γ α) → Ne Val (Δ ++ Γ) α
+wkNeVal* [] us = us
+wkNeVal* (α ∷ Δ) us = wkNeVal (wkNeVal* Δ us)
 
 wkVal* : ∀ {α} Δ {Γ} (u : Val Γ α) → Val (Δ ++ Γ) α
 wkVal* [] u = u
@@ -441,7 +441,7 @@ wkVal* (α ∷ Δ) u = wkVal (wkVal* Δ u)
 
 wkEnv* : ∀ {Β} Δ {Γ} (ρ : Env Γ Β) → Env (Δ ++ Γ) Β
 wkEnv* [] ρ = ρ
-wkEnv* (α ∷ Σ) ρ = wkEnv (wkEnv* Σ ρ)
+wkEnv* (α ∷ Δ) ρ = wkEnv (wkEnv* Δ ρ)
 
 -- Identity environments.
 
@@ -462,13 +462,13 @@ module NaiveNorm where
   mutual
 
     qVal : ∀ {α Γ} (u : Val Γ α) → Nf Γ α
-    qVal {⋆} (ne n) = ne (qNe n)
+    qVal {⋆} (ne us) = ne (qNeVal us)
     qVal {α ⇒ β} f =
       lam (qVal (wkVal f ⟨∙⟩ ne (var vz)))
 
-    qNe : ∀ {α Γ} (n : Ne Val Γ α) → Ne Nf Γ α
-    qNe (var x) = var x
-    qNe (app n u) = app (qNe n) (qVal u)
+    qNeVal : ∀ {α Γ} (us : Ne Val Γ α) → Ne Nf Γ α
+    qNeVal (var x) = var x
+    qNeVal (app us u) = app (qNeVal us) (qVal u)
 
   nf : ∀ {α Γ} (t : Tm Γ α) → Nf Γ α
   nf t = qVal (⟦ t ⟧ id-env)
@@ -490,7 +490,7 @@ mutual
 
   infix 4 ⟦_⟧_⇓_ ⟦_⟧*_⇓_ _⟨∙⟩_⇓_
 
-  data ⟦_⟧_⇓_ : ∀ {α Γ Δ} → Tm Δ α → Env Γ Δ → Val Γ α → Set where
+  data ⟦_⟧_⇓_ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) (u : Val Γ α) → Set where
     ø⇓ : ∀ {α Γ Δ} {u : Val Γ α} {ρ : Env Γ Δ} →
       ⟦ ø ⟧ (u ∷ ρ) ⇓ u
     ∙⇓ : ∀ {α β Γ Δ} {t : Tm Δ (α ⇒ β)} {t′ : Tm Δ α} {ρ : Env Γ Δ} {u v w}
@@ -502,7 +502,7 @@ mutual
       (p : ⟦ σ ⟧* ρ ⇓ ρ′) (q : ⟦ t ⟧ ρ′ ⇓ u) →
       ⟦ t [ σ ] ⟧ ρ ⇓ u
 
-  data ⟦_⟧*_⇓_ : ∀ {Γ Δ Σ} → Sub Δ Σ → Env Γ Δ → Env Γ Σ → Set where
+  data ⟦_⟧*_⇓_ : ∀ {Γ Δ Σ} (σ : Sub Δ Σ) (ρ : Env Γ Δ) (ρ′ : Env Γ Σ) → Set where
     ι⇓ : ∀ {Γ Σ} {ρ : Env Γ Σ} →
       ⟦ ı ⟧* ρ ⇓ ρ
     ⊙⇓ : ∀ {Γ Δ Δ′ Σ} {σ : Sub Δ′ Σ} {σ′ : Sub Δ Δ′} {ρ : Env Γ Δ} {ρ′ ρ′′}
@@ -514,13 +514,39 @@ mutual
     ↑⇓ : ∀ {α Γ Δ} {u : Val Γ α} {ρ : Env Γ Δ} →
       ⟦ ↑ ⟧* (u ∷ ρ) ⇓ ρ
 
-  data _⟨∙⟩_⇓_ : ∀ {α β Γ} → Val Γ (α ⇒ β) → Val Γ α → Val Γ β → Set where
-    ne⇓  : ∀ {α β Γ} {n : Ne Val Γ (α ⇒ β)} {u} →
-      ne n ⟨∙⟩ u ⇓ ne (app n u)
+  data _⟨∙⟩_⇓_ : ∀ {α β Γ} (u : Val Γ (α ⇒ β)) (v : Val Γ α) (w : Val Γ β) → Set where
+    ne⇓  : ∀ {α β Γ} {us : Ne Val Γ (α ⇒ β)} {u} →
+      ne us ⟨∙⟩ u ⇓ ne (app us u)
     lam⇓ : ∀ {α β Γ Δ} {t : Tm (α ∷ Δ) β} {ρ : Env Γ Δ} {u v}
       (p : ⟦ t ⟧ (u ∷ ρ) ⇓ v) →
       lam t ρ ⟨∙⟩ u ⇓ v
 
+mutual
+
+  data QVal_⇓_ : ∀ {α Γ} (u : Val Γ α) (n : Nf Γ α) → Set where
+    ⋆⇓ : ∀ {Γ} (us : Ne Val Γ ⋆) {ns}
+      (p : QNeVal us ⇓ ns) →
+      QVal (ne us) ⇓ ne ns
+    ⇒⇓ : ∀ {α β Γ} {f : Val Γ (α ⇒ β)} {u n} →
+      (p : wkVal f ⟨∙⟩ ne (var vz) ⇓ u) (q : QVal u ⇓ n) →
+      QVal f ⇓ lam n
+
+  data QNeVal_⇓_ : ∀ {α Γ} (us : Ne Val Γ α) (ns : Ne Nf Γ α) → Set where
+    var⇓ : ∀ {α Γ} {x : Var (α ∷ Γ) α} →
+      QNeVal var x ⇓ var x
+    app⇓ : ∀ {α β Γ} {us : Ne Val Γ (α ⇒ β)} {u : Val Γ α} {n′ u′}
+      (p : QNeVal us ⇓ n′) (q : QVal u ⇓ u′) →
+      QNeVal app us u ⇓ app n′ u′
+
+
+data Nf_⇓_ : ∀ {α Γ} (t : Tm Γ α) (n : Nf Γ α) → Set where
+  nf⇓ : ∀ {α Γ} {t : Tm Γ α} {u m}
+    (p : ⟦ t ⟧ id-env ⇓ u) (q : QVal u ⇓ m) →
+    Nf t ⇓ m
+
+nf-III⇓ : Nf III ⇓ lam (ne (var vz))
+nf-III⇓ = nf⇓ (∙⇓ ƛ⇓ (∙⇓ ƛ⇓ ƛ⇓ (lam⇓ ø⇓)) (lam⇓ ø⇓))
+                  (⇒⇓ (lam⇓ ø⇓) (⋆⇓ (var vz) var⇓))
 
 --
 -- Structurally recursive evaluator.
@@ -558,7 +584,29 @@ mutual
   _⟨∙⟩_&_ : ∀ {α β Γ} (u : Val Γ (α ⇒ β)) (v : Val Γ α) {w : Val Γ β} →
     u ⟨∙⟩ v ⇓ w → ∃ λ w′ → w′ ≡ w
 
-  ne n ⟨∙⟩ v & ne⇓ =
-    ne (app n v) , refl
-  lam t ρ ⟨∙⟩ v & lam⇓ ⇓w =
-    ⟦ t ⟧ (v ∷ ρ) & ⇓w
+  ne us ⟨∙⟩ u & ne⇓ =
+    ne (app us u) , refl
+  lam t ρ ⟨∙⟩ u & lam⇓ ⇓w =
+    ⟦ t ⟧ (u ∷ ρ) & ⇓w
+
+⟦⟧-III : ⟦ III ⟧ id-env & ∙⇓ ƛ⇓ (∙⇓ ƛ⇓ ƛ⇓ (lam⇓ ø⇓)) (lam⇓ ø⇓) ≡
+  lam ø [] , refl
+⟦⟧-III = refl
+
+--
+-- Strong computability.
+--
+
+
+SCV : ∀ {α Γ} (u : Val Γ α) → Set
+SCV {⋆} {Γ} (ne us) = ∃ λ (ns : Ne Nf Γ ⋆) →
+  QNeVal us ⇓ ns
+  × embNeVal us ≈ embNeNf ns
+SCV {α ⇒ β} {Γ} u = ∀ {Β} (η : Β ≤ Γ) (v : Val Β α) (q : SCV v) →
+  ∃ λ w → (val≤ η u) ⟨∙⟩ v ⇓ w
+    × embVal (val≤ η u) ∙ embVal v ≈ embVal w
+    × SCV w
+
+SCE : ∀ {Γ Δ} (ρ : Env Γ Δ) → Set
+SCE [] = ⊤
+SCE (u ∷ ρ) = SCV u × SCE ρ
