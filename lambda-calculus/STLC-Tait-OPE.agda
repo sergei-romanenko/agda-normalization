@@ -342,7 +342,8 @@ mutual
 
   embVal : ∀ {α Γ} (u : Val Γ α) → Tm Γ α
   embVal (lam t ρ) =
-    ƛ t [ ø ∷ (embEnv ρ ⊙ ↑) ]
+    --ƛ t [ ø ∷ (embEnv ρ ⊙ ↑) ]
+    (ƛ t) [ embEnv ρ ]
   embVal (ne us) = embNeVal us
 
   embEnv : ∀ {Γ Δ} (ρ : Env Γ Δ) → Sub Γ Δ
@@ -412,6 +413,11 @@ mutual
   neNf≤ : ∀ {Γ Δ} (η : Γ ≤ Δ) {α} (ns : Ne Nf Δ α) → Ne Nf Γ α
   neNf≤ η (var x) = var (var≤ η x)
   neNf≤ η (app ns n) = app (neNf≤ η ns) (nf≤ η n)
+
+sub≤ : ∀ {Γ Δ} (η : Γ ≤ Δ) → Sub Γ Δ
+sub≤ ≤id = ı
+sub≤ (≤weak η) = sub≤ η ⊙ ↑
+sub≤ (≤lift η) = ø ∷ sub≤ η ⊙ ↑
 
 --
 -- Weakening
@@ -651,24 +657,217 @@ mutual
   env≤∘ η η′ (u ∷ ρ) =
     cong₂ _∷_ (val≤∘ η η′ u) (env≤∘ η η′ ρ)
 
+--
+-- OPEs commute with embeddings
+--
+
+embVar∘≤ :  ∀ {α Β Γ} (η : Β ≤ Γ) (x : Var Γ α) →
+  embVar (var≤ η x) ≈ embVar x [ sub≤ η ]
+embVar∘≤ ≤id x = ≈sym ≈id
+embVar∘≤ (≤weak η) vz = begin
+  embVar (var≤ (≤weak η) vz)
+    ≡⟨⟩
+  embVar (var≤ η vz) [ ↑ ]
+    ≈⟨ ≈cong[] (embVar∘≤ η vz) ≃refl ⟩
+  ø [ sub≤ η ] [ ↑ ]
+    ≈⟨ ≈sym ≈comp ⟩
+  ø [ sub≤ η ⊙ ↑ ]
+    ≡⟨⟩
+  embVar vz [ sub≤ (≤weak η) ]
+  ∎
+  where open ≈-Reasoning
+embVar∘≤ (≤weak η) (vs x) = begin
+  embVar (var≤ (≤weak η) (vs x))
+    ≡⟨⟩
+  embVar (var≤ η (vs x)) [ ↑ ]
+    ≈⟨ ≈cong[] (embVar∘≤ η (vs x)) ≃refl ⟩
+  embVar x [ ↑ ] [ sub≤ η ] [ ↑ ]
+    ≈⟨ ≈sym ≈comp ⟩
+  embVar x [ ↑ ] [ sub≤ η ⊙ ↑ ]
+    ≡⟨⟩
+  embVar (vs x) [ sub≤ (≤weak η) ]
+  ∎
+  where open ≈-Reasoning
+embVar∘≤ (≤lift η) vz = begin
+  embVar (var≤ (≤lift η) vz)
+    ≡⟨⟩
+  ø
+    ≈⟨ ≈sym ≈proj ⟩
+  ø [ ø ∷ sub≤ η ⊙ ↑ ]
+    ≡⟨⟩
+  embVar vz [ sub≤ (≤lift η) ]
+  ∎
+  where open ≈-Reasoning
+embVar∘≤ (≤lift η) (vs x) = begin
+  embVar (var≤ (≤lift η) (vs x))
+    ≡⟨⟩
+  embVar (var≤ η x) [ ↑ ]
+    ≈⟨ ≈cong[] (embVar∘≤ η x) ≃refl ⟩
+  embVar x [ sub≤ η ] [ ↑ ]
+    ≈⟨ ≈sym ≈comp ⟩
+  embVar x [ sub≤ η ⊙ ↑ ]
+    ≈⟨ ≈cong[] ≈refl (≃sym ≃wk) ⟩
+  embVar x [ ↑ ⊙ (ø ∷ sub≤ η ⊙ ↑) ]
+    ≈⟨ ≈comp ⟩
+  embVar x [ ↑ ] [ ø ∷ sub≤ η ⊙ ↑ ]
+    ≡⟨⟩
+  embVar (vs x) [ sub≤ (≤lift η) ]
+  ∎
+  where open ≈-Reasoning
+
+mutual
+
+  embVal∘≤ : ∀ {α Β Γ} (η : Β ≤ Γ) (u : Val Γ α) →
+    embVal (val≤ η u) ≈ embVal u [ sub≤ η ]
+  embVal∘≤ η (ne us) = embNeVal∘≤ η us
+  embVal∘≤ η (lam t ρ) = begin
+    embVal (val≤ η (lam t ρ))
+      ≡⟨⟩
+    (ƛ t) [ embEnv (env≤ η ρ) ]
+      ≈⟨ ≈cong[] ≈refl (embEnv∘≤ η ρ) ⟩
+    (ƛ t) [ embEnv ρ ⊙ sub≤ η ]
+      ≈⟨ ≈comp  ⟩
+    (ƛ t) [ embEnv ρ ] [ sub≤ η ]
+      ≡⟨⟩
+    embVal (lam t ρ) [ sub≤ η ]
+    ∎
+    where open ≈-Reasoning
+
+  embNeVal∘≤ : ∀ {α Β Γ} (η : Β ≤ Γ) (us : Ne Val Γ α) →
+    embNeVal (neVal≤ η us) ≈ embNeVal us [ sub≤ η ]
+  embNeVal∘≤ η (var x) = embVar∘≤ η x
+  embNeVal∘≤ η (app us u) = begin
+    embNeVal (neVal≤ η (app us u))
+      ≡⟨⟩
+    embNeVal (neVal≤ η us) ∙ embVal (val≤ η u)
+      ≈⟨ ≈cong∙ (embNeVal∘≤ η us) (embVal∘≤ η u) ⟩
+    embNeVal us [ sub≤ η ] ∙ embVal u [ sub≤ η ]
+      ≈⟨ ≈sym ≈app ⟩
+    (embNeVal us ∙ embVal u) [ sub≤ η ]
+      ≡⟨⟩
+    embNeVal (app us u) [ sub≤ η ]
+    ∎
+    where open ≈-Reasoning
+
+  embEnv∘≤ : ∀ {Β Γ Δ} (η : Β ≤ Γ) (ρ : Env Γ Δ) →
+    embEnv (env≤ η ρ) ≃ embEnv ρ ⊙ sub≤ η
+  embEnv∘≤ ≤id [] = ≃sym ≃idr
+  embEnv∘≤ {Γ = []} (≤weak η) [] = begin
+    embEnv (env≤ (≤weak η) [])
+      ≡⟨⟩
+    sub-from-[] ⊙ ↑
+      ≈⟨ ≃cong⊙ (embEnv∘≤ η []) ≃refl ⟩
+    (ı ⊙ sub≤ η) ⊙ ↑
+      ≈⟨ ≃assoc ⟩
+    ı ⊙ sub≤ η ⊙ ↑
+      ≡⟨⟩
+    embEnv [] ⊙ sub≤ (≤weak η)
+    ∎
+    where open ≃-Reasoning
+  embEnv∘≤ {Γ = α ∷ Γ} (≤weak η) [] = begin
+    embEnv (env≤ (≤weak η) [])
+      ≡⟨⟩
+    sub-from-[] ⊙ ↑
+      ≈⟨ ≃cong⊙ (embEnv∘≤ η []) ≃refl ⟩
+    ((sub-from-[] ⊙ ↑) ⊙ sub≤ η) ⊙ ↑
+      ≈⟨ ≃assoc ⟩
+    (sub-from-[] ⊙ ↑) ⊙ (sub≤ η ⊙ ↑)
+      ≡⟨⟩
+    embEnv [] ⊙ sub≤ (≤weak η)
+    ∎
+    where open ≃-Reasoning
+  embEnv∘≤ (≤lift η) [] = begin
+    embEnv (env≤ (≤lift η) [])
+      ≡⟨⟩
+    sub-from-[] ⊙ ↑
+      ≈⟨ ≃cong⊙ (embEnv∘≤ η []) ≃refl ⟩
+    (sub-from-[] ⊙ sub≤ η) ⊙ ↑
+      ≈⟨ ≃assoc ⟩
+    sub-from-[] ⊙ (sub≤ η ⊙ ↑)
+      ≈⟨ ≃cong⊙ ≃refl (≃sym ≃wk) ⟩
+    sub-from-[] ⊙ (↑ ⊙ (ø ∷ sub≤ η ⊙ ↑))
+      ≈⟨ ≃sym ≃assoc ⟩
+    (sub-from-[] ⊙ ↑) ⊙ (ø ∷ sub≤ η ⊙ ↑)
+      ≡⟨⟩
+    embEnv [] ⊙ sub≤ (≤lift η)
+    ∎
+    where open ≃-Reasoning
+  embEnv∘≤ η (u ∷ ρ) = begin
+    embEnv (env≤ η (u ∷ ρ))
+      ≡⟨⟩
+    embVal (val≤ η u) ∷ embEnv (env≤ η ρ)
+      ≈⟨ ≃cong∷ (embVal∘≤ η u) (embEnv∘≤ η ρ) ⟩
+    embVal u [ sub≤ η ] ∷ embEnv ρ ⊙ sub≤ η
+      ≈⟨ ≃sym ≃cons ⟩
+    (embVal u ∷ embEnv ρ) ⊙ sub≤ η
+      ≡⟨⟩
+    embEnv (u ∷ ρ) ⊙ sub≤ η
+    ∎
+    where open ≃-Reasoning
+
+ı≃sub≤-≤id : ∀ {Γ} → ı ≃ sub≤ {Γ} ≤id
+ı≃sub≤-≤id {Γ} = ≃refl
+
+-- Normal forms.
+
+mutual
+
+  embNf∘≤ : ∀ {α Β Γ} (η : Β ≤ Γ) (n : Nf Γ α) →
+    embNf (nf≤ η n) ≈ embNf n [ sub≤ η ]
+  embNf∘≤ η (ne ns) = embNeNf∘≤ η ns
+  embNf∘≤ η (lam n) = begin
+    embNf (nf≤ η (lam n))
+      ≡⟨⟩
+    ƛ embNf (nf≤ (≤lift η) n)
+      ≈⟨ ≈congƛ (embNf∘≤ (≤lift η) n) ⟩
+    ƛ embNf n [ ø ∷ sub≤ η ⊙ ↑ ]
+      ≈⟨ ≈sym ≈lam ⟩
+    (ƛ embNf n) [ sub≤ η ]
+      ≡⟨⟩
+    embNf (lam n) [ sub≤ η ]
+    ∎
+    where open ≈-Reasoning
+
+  embNeNf∘≤ : ∀ {α Β Γ} (η : Β ≤ Γ) (ns : Ne Nf Γ α) →
+    embNeNf (neNf≤ η ns) ≈ embNeNf ns [ sub≤ η ]
+  embNeNf∘≤ η (var x) = embVar∘≤ η x
+  embNeNf∘≤ η (app ns u) = begin
+    embNeNf (neNf≤ η (app ns u))
+      ≡⟨⟩
+    embNeNf (neNf≤ η ns) ∙ embNf (nf≤ η u)
+      ≈⟨ ≈cong∙ (embNeNf∘≤ η ns) (embNf∘≤ η u) ⟩
+    (embNeNf ns [ sub≤ η ]) ∙ (embNf u [ sub≤ η ])
+      ≈⟨ ≈sym ≈app ⟩
+    (embNeNf ns ∙ embNf u) [ sub≤ η ]
+      ≡⟨⟩
+    embNeNf (app ns u) [ sub≤ η ]
+    ∎
+    where open ≈-Reasoning
+
 postulate
 
   qNeVal≤ : ∀ {α Β Γ} (η : Β ≤ Γ) (us : Ne Val Γ α) (ns : Ne Nf Γ α) →
     (⇓ns : QNeVal us ⇓ ns) →
       QNeVal neVal≤ η us ⇓ neNf≤ η ns
 
-postulate
-  embNe≈≤ : ∀ {α Β Γ} (η : Β ≤ Γ) (us : Ne Val Γ α) (ns : Ne Nf Γ α) →
-    (p : embNeVal us ≈ embNeNf ns) →
-      embNeVal (neVal≤ η us) ≈ embNeNf (neNf≤ η ns)
-{-
+embNe≈≤ : ∀ {α Β Γ} (η : Β ≤ Γ) (us : Ne Val Γ α) (ns : Ne Nf Γ α) →
+  (p : embNeVal us ≈ embNeNf ns) →
+     embNeVal (neVal≤ η us) ≈ embNeNf (neNf≤ η ns)
 embNe≈≤ η us ns p = begin
   embNeVal (neVal≤ η us)
-    ≈⟨ {!!} ⟩
+    ≈⟨ embNeVal∘≤ η us ⟩
+  embNeVal us [ sub≤ η ]
+    ≈⟨ ≈cong[] p ≃refl ⟩
+  embNeNf ns [ sub≤ η ]
+    ≈⟨ ≈sym (embNeNf∘≤ η ns) ⟩
   embNeNf (neNf≤ η ns)
   ∎
   where open ≈-Reasoning
--}
+
+--
+-- (p : SCV u) → ∀ {Β} (η : Β ≤ Γ) → SCV (val≤ η u)
+-- (r : SCE ρ) → ∀ {Β} (η : Β ≤ Γ) → SCE (env≤ η ρ)
+--
 
 mutual
 
@@ -700,71 +899,26 @@ mutual
   sce≤ (u ∷ ρ) (p , r) η = scv≤ u p η , sce≤ ρ r η
 
 --
+-- embVal (wkVal u) ≈ embVal u [ ↑ ]
+--
+
+embVal∘wkVal : ∀ {α γ Γ} (u : Val Γ α) →
+  embVal (wkVal {α} u) ≈ embVal u [ ↑ {γ} ]
+embVal∘wkVal u = begin
+  embVal (wkVal u)
+    ≡⟨⟩
+  embVal (val≤ wk u)
+    ≈⟨ embVal∘≤ wk u ⟩
+  embVal u [ ı ⊙ ↑ ]
+    ≈⟨ ≈cong[] ≈refl ≃idl ⟩
+  embVal u [ ↑ ]
+  ∎
+  where open ≈-Reasoning
 
 
-mutual
-
-  embNeVal∘[↑] : ∀ {α γ Γ} (n : Ne Val Γ α) →
-    embNeVal n [ ↑ {γ} ] ≈ embNeVal (wkNeVal n)
-  embNeVal∘[↑] (var x) = ≈refl
-  embNeVal∘[↑] (app n u) = begin
-    (embNeVal n ∙ embVal u) [ ↑ ]
-      ≈⟨ ≈app ⟩
-    embNeVal n [ ↑ ] ∙ embVal u [ ↑ ]
-      ≈⟨ ≈cong∙ (embNeVal∘[↑] n) (embVal∘[↑] u) ⟩
-    embNeVal (wkNeVal n) ∙ embVal (wkVal u)
-    ∎
-    where open ≈-Reasoning
-
-  embVal∘[↑] : ∀ {α γ Γ} (u : Val Γ α) →
-    embVal u [ ↑ {γ} ] ≈ embVal (wkVal {α} u)
-  embVal∘[↑] (lam t ρ) = begin
-    embVal (lam t ρ) [ ↑ ]
-      ≡⟨⟩
-    (ƛ t [ ø ∷ embEnv ρ ⊙ ↑ ]) [ ↑ ]
-      ≈⟨ ≈lam ⟩
-    ƛ t [ ø ∷ embEnv ρ ⊙ ↑ ] [ ø ∷ ↑ ⊙ ↑ ]
-      ≈⟨ ≈sym (≈congƛ ≈comp) ⟩
-    ƛ t [ (ø ∷ embEnv ρ ⊙ ↑) ⊙ (ø ∷ ↑ ⊙ ↑) ]
-      ≈⟨ ≈congƛ (≈cong[] ≈refl (embVal∘[↑]′ (embEnv ρ))) ⟩
-    ƛ t [ ø ∷ (embEnv ρ ⊙ ↑) ⊙ ↑ ]
-      ≈⟨ ≈congƛ (≈cong[] ≈refl (≃cong∷ ≈refl (≃cong⊙ (embEnv∘⊙↑ ρ) ≃refl))) ⟩
-    (ƛ t [ ø ∷ embEnv (wkEnv ρ) ⊙ ↑ ])
-      ≡⟨⟩
-    embVal (wkVal (lam t ρ))
-    ∎
-    where open ≈-Reasoning
-  embVal∘[↑] (ne n) =
-    embNeVal∘[↑] n
-
-  embVal∘[↑]′ : ∀ {α β Γ Δ} (σ : Sub Γ Δ) →
-    (ø ∷ σ ⊙ ↑) ⊙ (ø ∷ ↑ {α} ⊙ ↑ {β}) ≃ ø ∷ (σ ⊙ ↑) ⊙ ↑
-  embVal∘[↑]′ σ = begin
-    (ø ∷ σ ⊙ ↑) ⊙ (ø ∷ ↑ ⊙ ↑)
-      ≈⟨ ≃cons ⟩
-    ø [ ø ∷ ↑ ⊙ ↑ ] ∷ (σ ⊙ ↑) ⊙ (ø ∷ ↑ ⊙ ↑)
-      ≈⟨ ≃cong∷ ≈proj ≃assoc ⟩
-    ø ∷ σ ⊙ (↑ ⊙ (ø ∷ ↑ ⊙ ↑))
-      ≈⟨ ≃cong∷ ≈refl (≃cong⊙ ≃refl ≃wk) ⟩
-    ø ∷ σ ⊙ (↑ ⊙ ↑)
-      ≈⟨ ≃cong∷ ≈refl (≃sym ≃assoc) ⟩
-    ø ∷ (σ ⊙ ↑) ⊙ ↑
-    ∎
-    where open ≃-Reasoning
-
-  embEnv∘⊙↑ : ∀ {γ Γ Δ} (ρ : Env Γ Δ) →
-    embEnv ρ ⊙ ↑ {γ} ≃ embEnv (wkEnv ρ)
-  embEnv∘⊙↑ [] = ≃refl
-  embEnv∘⊙↑ (u ∷ ρ) = begin
-    (embVal u ∷ embEnv ρ) ⊙ ↑
-      ≈⟨ ≃cons ⟩
-    embVal u [ ↑ ] ∷ embEnv ρ ⊙ ↑
-      ≈⟨ ≃cong∷ (embVal∘[↑] u) (embEnv∘⊙↑ ρ) ⟩
-    embVal (wkVal u) ∷ embEnv (wkEnv ρ)
-    ∎
-    where open ≃-Reasoning
-
-
+--
+-- ∃ λ n → QVal u ⇓ n × embVal u ≈ embNf n
+-- QNeVal us ⇓ ns → embNeVal us ≈ embNeNf ns → SCV (ne us)
 --
 
 mutual
@@ -786,7 +940,7 @@ mutual
       embVal u
         ≈⟨ ≈η ⟩
       ƛ embVal u [ ↑ ] ∙ ø
-        ≈⟨ ≈congƛ (≈cong∙ (embVal∘[↑] u) ≈refl) ⟩
+        ≈⟨ ≈congƛ (≈cong∙ (≈sym (embVal∘wkVal u)) ≈refl) ⟩
       ƛ embVal (wkVal u) ∙ ø
         ≈⟨ ≈congƛ ≈v ⟩
       ƛ embVal v
@@ -800,7 +954,6 @@ mutual
     QNeVal us ⇓ ns → embNeVal us ≈ embNeNf ns → SCV (ne us)
   neVal⇓→scv {⋆} us ns ⇓ns ≈ns =
     ns , ⇓ns , ≈ns
--- {-
   neVal⇓→scv {α ⇒ β} {Γ} us ns ⇓ns ≈ns {Β} η u p with  scv→val⇓ u p
   ... | m , ⇓m , u≈m =
     ne (app us≤ u) , ne⇓ , ≈refl , r
