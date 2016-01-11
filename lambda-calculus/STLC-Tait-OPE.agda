@@ -450,12 +450,13 @@ wkEnv* : ∀ {Β} Δ {Γ} (ρ : Env Γ Β) → Env (Δ ++ Γ) Β
 wkEnv* [] ρ = ρ
 wkEnv* (α ∷ Δ) ρ = wkEnv (wkEnv* Δ ρ)
 
+--
 -- Identity environments.
+--
 
 id-env : ∀ {Γ} → Env Γ Γ
 id-env {[]} = []
 id-env {α ∷ Γ} = ne (var vz) ∷ wkEnv id-env
-
 
 --
 -- Recursive normalizer.
@@ -501,12 +502,12 @@ mutual
     ø⇓ : ∀ {α Γ Δ} {u : Val Γ α} {ρ : Env Γ Δ} →
       ⟦ ø ⟧ (u ∷ ρ) ⇓ u
     ∙⇓ : ∀ {α β Γ Δ} {t : Tm Δ (α ⇒ β)} {t′ : Tm Δ α} {ρ : Env Γ Δ} {u v w}
-      (p : ⟦ t ⟧ ρ ⇓ u) (q : ⟦ t′ ⟧ ρ ⇓ v) (r : u ⟨∙⟩ v ⇓ w) →
+      (⇓u : ⟦ t ⟧ ρ ⇓ u) (⇓v : ⟦ t′ ⟧ ρ ⇓ v) (⇓w : u ⟨∙⟩ v ⇓ w) →
       ⟦ t ∙ t′ ⟧ ρ ⇓ w
     ƛ⇓ : ∀ {α β Γ Δ} {t : Tm (α ∷ Δ) β} {ρ : Env Γ Δ} →
       ⟦ ƛ t ⟧ ρ ⇓ lam t ρ
     []⇓ : ∀ {α Γ Δ Σ} {t : Tm Σ α } {σ : Sub Δ Σ} {ρ : Env Γ Δ} {ρ′ u}
-      (p : ⟦ σ ⟧* ρ ⇓ ρ′) (q : ⟦ t ⟧ ρ′ ⇓ u) →
+      (⇓ρ′ : ⟦ σ ⟧* ρ ⇓ ρ′) (⇓u : ⟦ t ⟧ ρ′ ⇓ u) →
       ⟦ t [ σ ] ⟧ ρ ⇓ u
 
   data ⟦_⟧*_⇓_ : ∀ {Γ Δ Σ} (σ : Sub Δ Σ) (ρ : Env Γ Δ) (ρ′ : Env Γ Σ) →
@@ -514,10 +515,10 @@ mutual
     ι⇓ : ∀ {Γ Σ} {ρ : Env Γ Σ} →
       ⟦ ı ⟧* ρ ⇓ ρ
     ⊙⇓ : ∀ {Γ Δ Δ′ Σ} {σ : Sub Δ′ Σ} {σ′ : Sub Δ Δ′} {ρ : Env Γ Δ} {ρ′ ρ′′}
-      (p : ⟦ σ′ ⟧* ρ ⇓ ρ′) (q : ⟦ σ ⟧* ρ′ ⇓ ρ′′) →
+      (⇓ρ′ : ⟦ σ′ ⟧* ρ ⇓ ρ′) (⇓ρ′′ : ⟦ σ ⟧* ρ′ ⇓ ρ′′) →
       ⟦ σ ⊙ σ′ ⟧* ρ ⇓ ρ′′
     ∷⇓ : ∀ {α Γ Δ Σ} {t : Tm Δ α} {σ : Sub Δ Σ} {ρ : Env Γ Δ} {u ρ′}
-      (p : ⟦ t ⟧ ρ ⇓ u) (q : ⟦ σ ⟧* ρ ⇓ ρ′) →
+      (⇓u : ⟦ t ⟧ ρ ⇓ u) (⇓ρ′ : ⟦ σ ⟧* ρ ⇓ ρ′) →
       ⟦ t ∷ σ ⟧* ρ ⇓ u ∷ ρ′
     ↑⇓ : ∀ {α Γ Δ} {u : Val Γ α} {ρ : Env Γ Δ} →
       ⟦ ↑ ⟧* (u ∷ ρ) ⇓ ρ
@@ -527,7 +528,7 @@ mutual
     ne⇓  : ∀ {α β Γ} {us : Ne Val Γ (α ⇒ β)} {u} →
       ne us ⟨∙⟩ u ⇓ ne (app us u)
     lam⇓ : ∀ {α β Γ Δ} {t : Tm (α ∷ Δ) β} {ρ : Env Γ Δ} {u v}
-      (p : ⟦ t ⟧ (u ∷ ρ) ⇓ v) →
+      (⇓v : ⟦ t ⟧ (u ∷ ρ) ⇓ v) →
       lam t ρ ⟨∙⟩ u ⇓ v
 
 mutual
@@ -602,10 +603,10 @@ mutual
   lam ø [] , refl
 ⟦⟧-III = refl
 
+
 --
 -- Strong computability.
 --
-
 
 SCV : ∀ {α Γ} (u : Val Γ α) → Set
 SCV {⋆} {Γ} (ne us) = ∃ λ (ns : Ne Nf Γ ⋆) →
@@ -664,21 +665,30 @@ mutual
 -- OPEs commute with evaluation
 --
 
-postulate
+mutual
 
-  ⟦⟧⇓≤ : ∀ {α Β Γ Δ} (η : Β ≤ Γ)
-    {t : Tm Δ α} {ρ : Env Γ Δ} {u : Val Γ α} →
-    ⟦ t ⟧ ρ ⇓ u →
+  ⟦⟧⇓≤ : ∀ {α Β Γ Δ} (η : Β ≤ Γ) {t : Tm Δ α} {ρ : Env Γ Δ} {u : Val Γ α}
+    (⇓u : ⟦ t ⟧ ρ ⇓ u) →
     ⟦ t ⟧ env≤ η ρ ⇓ val≤ η u
+  ⟦⟧⇓≤ η ø⇓ = ø⇓
+  ⟦⟧⇓≤ η (∙⇓ ⇓u ⇓v ⇓w) = ∙⇓ (⟦⟧⇓≤ η ⇓u) (⟦⟧⇓≤ η ⇓v) (⟨∙⟩⇓≤ η ⇓w)
+  ⟦⟧⇓≤ η ƛ⇓ = ƛ⇓
+  ⟦⟧⇓≤ η ([]⇓ ⇓ρ′ ⇓u) = []⇓ (⟦⟧*⇓≤ η ⇓ρ′) (⟦⟧⇓≤ η ⇓u)
 
-  ⟦⟧*⇓≤ : ∀ {Β Γ Δ Δ′} (η : Β ≤ Γ)
-    {σ : Sub Δ′ Δ} {ρ : Env Γ Δ′} {ρ′ : Env Γ Δ} →
-    ⟦ σ ⟧* ρ ⇓ ρ′ → ⟦ σ ⟧* env≤ η ρ ⇓ env≤ η ρ′
+  ⟦⟧*⇓≤ : ∀ {Β Γ Δ Δ′} (η : Β ≤ Γ) {σ : Sub Δ′ Δ} {ρ : Env Γ Δ′} {ρ′ : Env Γ Δ}
+    (⇓ρ′ : ⟦ σ ⟧* ρ ⇓ ρ′) →
+    ⟦ σ ⟧* env≤ η ρ ⇓ env≤ η ρ′
+  ⟦⟧*⇓≤ η ι⇓ = ι⇓
+  ⟦⟧*⇓≤ η (⊙⇓ ⇓ρ′ ⇓ρ′′) = ⊙⇓ (⟦⟧*⇓≤ η ⇓ρ′) (⟦⟧*⇓≤ η ⇓ρ′′)
+  ⟦⟧*⇓≤ η (∷⇓ ⇓u ⇓ρ′) = ∷⇓ (⟦⟧⇓≤ η ⇓u) (⟦⟧*⇓≤ η ⇓ρ′)
+  ⟦⟧*⇓≤ η ↑⇓ = ↑⇓
 
   ⟨∙⟩⇓≤ : ∀ {α β Β Γ} (η : Β ≤ Γ)
-    {u : Val Γ (α ⇒ β)} {v : Val Γ α} {w : Val Γ β} →
-    u ⟨∙⟩ v ⇓ w →
+    {u : Val Γ (α ⇒ β)} {v : Val Γ α} {w : Val Γ β}
+    (⇓w : u ⟨∙⟩ v ⇓ w) →
     val≤ η u ⟨∙⟩ val≤ η v ⇓ val≤ η w
+  ⟨∙⟩⇓≤ η ne⇓ = ne⇓
+  ⟨∙⟩⇓≤ η (lam⇓ ⇓v) = lam⇓ (⟦⟧⇓≤ η ⇓v)
 
 --
 -- OPEs commute with wkVal.
@@ -853,8 +863,27 @@ mutual
     ∎
     where open ≃-Reasoning
 
-ı≃sub≤-≤id : ∀ {Γ} → ı ≃ sub≤ {Γ} ≤id
+--
+-- ... ≃ ı
+--
+
+ı≃sub≤-≤id : ∀ {Γ} → sub≤ {Γ} ≤id ≃ ı
 ı≃sub≤-≤id {Γ} = ≃refl
+
+embEnv∘id-env : ∀ {Γ} → embEnv (id-env {Γ}) ≃ ı
+embEnv∘id-env {[]} = ≃refl
+embEnv∘id-env {x ∷ Γ} = begin
+  ø ∷ embEnv (wkEnv id-env)
+    ≡⟨⟩
+  ø ∷ embEnv (env≤ wk id-env)
+    ≈⟨ ≃cong∷ ≈refl (embEnv∘≤ wk id-env) ⟩
+  ø ∷ embEnv id-env ⊙ (ı ⊙ ↑)
+    ≈⟨ ≃cong∷ ≈refl (≃cong⊙ embEnv∘id-env ≃idl) ⟩
+  ø ∷ (ı ⊙ ↑)
+    ≈⟨ ≃sym ≃id∷ ⟩
+  ı ∎
+  where open ≃-Reasoning
+
 
 -- Normal forms.
 
@@ -1046,3 +1075,62 @@ mutual
     r = neVal⇓→scv (app us≤ u) (app ns≤ m)
                         (app⇓ (qNeVal≤ η ⇓ns) ⇓m) us∙u≈ns∙m
 
+
+sc-var : ∀ {α Γ} (x : Var Γ α) → SCV (ne (var x))
+sc-var x = neVal⇓→scv (var x) (var x) var⇓ ≈refl
+
+sce-id-env : ∀ {Γ} → SCE (id-env {Γ})
+sce-id-env {[]} = tt
+sce-id-env {α ∷ Γ} = sc-var vz , sce≤ id-env sce-id-env wk
+
+--
+-- The fundamental theorem about strong computability:
+-- all terms are "strongly computable".
+--
+
+postulate
+
+  all-scv : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) (p : SCE ρ) →
+    ∃ λ u → ⟦ t ⟧ ρ ⇓ u × (t [ embEnv ρ ] ≈ embVal u) × SCV u
+
+  all-sce : ∀ {Β Γ Δ} (σ : Sub Γ Δ) (ρ : Env Β Γ) (p : SCE ρ) →
+    ∃ λ ρ′ → ⟦ σ ⟧* ρ ⇓ ρ′ × (σ ⊙ embEnv ρ ≃ embEnv ρ′) × SCE ρ′
+
+--
+-- All terms are normalizable.
+--
+
+postulate
+  all-nf : ∀ {α Γ} (t : Tm Γ α) →
+    ∃ λ n → Nf t ⇓ n × (t ≈ embNf n)
+
+--
+-- Normalizer!
+--
+
+nf : ∀ {α Γ} (t : Tm Γ α) → Nf Γ α
+nf t with all-scv t id-env sce-id-env
+... | u , ⇓u , ≈u , p with scv→val⇓ u p
+... | n , ⇓n , ≈n
+  = n
+
+--
+-- Completeness: terms are convertible to their normal forms.
+--
+
+complete : ∀ {α Γ} (t : Tm Γ α) → t ≈ embNf (nf t)
+
+complete t with all-scv t id-env sce-id-env
+... | u , ⇓u , ≈u , p with scv→val⇓ u p
+... | n , ⇓n , ≈n = begin
+  t
+    ≈⟨ ≈sym ≈id ⟩
+  t [ ı ]
+    ≈⟨ ≈cong[] ≈refl (≃sym embEnv∘id-env) ⟩
+  t [ embEnv id-env ]
+    ≈⟨ ≈u ⟩
+  embVal u
+    ≈⟨ ≈n ⟩
+  embNf n
+  ∎
+  where open ≈-Reasoning
