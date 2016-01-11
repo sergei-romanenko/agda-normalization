@@ -27,10 +27,12 @@ module STLC-Tait-OPE where
 
 open import Data.List as List
   hiding ([_])
+{-
 open import Data.List.Any
   using (Any; here; there; module Membership-≡)
 open import Data.List.Properties
   using ()
+-}
 open import Data.Empty
 open import Data.Unit
   using (⊤; tt)
@@ -342,7 +344,6 @@ mutual
 
   embVal : ∀ {α Γ} (u : Val Γ α) → Tm Γ α
   embVal (lam t ρ) =
-    --ƛ t [ ø ∷ (embEnv ρ ⊙ ↑) ]
     (ƛ t) [ embEnv ρ ]
   embVal (ne us) = embNeVal us
 
@@ -369,8 +370,8 @@ infix 4 _≤_
 
 data _≤_ : (Γ Δ : Ctx) → Set where
   ≤id : ∀ {Γ} → Γ ≤ Γ
-  ≤weak : ∀ {Γ Δ α} (η : Γ ≤ Δ) → α ∷ Γ ≤ Δ
-  ≤lift : ∀ {Γ Δ α} (η : Γ ≤ Δ) → α ∷ Γ ≤ α ∷ Δ
+  ≤weak : ∀ {α Γ Δ} (η : Γ ≤ Δ) → α ∷ Γ ≤ Δ
+  ≤lift : ∀ {α Γ Δ} (η : Γ ≤ Δ) → α ∷ Γ ≤ α ∷ Δ
 
 infixr 6 _●_
 
@@ -508,7 +509,8 @@ mutual
       (p : ⟦ σ ⟧* ρ ⇓ ρ′) (q : ⟦ t ⟧ ρ′ ⇓ u) →
       ⟦ t [ σ ] ⟧ ρ ⇓ u
 
-  data ⟦_⟧*_⇓_ : ∀ {Γ Δ Σ} (σ : Sub Δ Σ) (ρ : Env Γ Δ) (ρ′ : Env Γ Σ) → Set where
+  data ⟦_⟧*_⇓_ : ∀ {Γ Δ Σ} (σ : Sub Δ Σ) (ρ : Env Γ Δ) (ρ′ : Env Γ Σ) →
+       Set where
     ι⇓ : ∀ {Γ Σ} {ρ : Env Γ Σ} →
       ⟦ ı ⟧* ρ ⇓ ρ
     ⊙⇓ : ∀ {Γ Δ Δ′ Σ} {σ : Sub Δ′ Σ} {σ′ : Sub Δ Δ′} {ρ : Env Γ Δ} {ρ′ ρ′′}
@@ -520,7 +522,8 @@ mutual
     ↑⇓ : ∀ {α Γ Δ} {u : Val Γ α} {ρ : Env Γ Δ} →
       ⟦ ↑ ⟧* (u ∷ ρ) ⇓ ρ
 
-  data _⟨∙⟩_⇓_ : ∀ {α β Γ} (u : Val Γ (α ⇒ β)) (v : Val Γ α) (w : Val Γ β) → Set where
+  data _⟨∙⟩_⇓_ : ∀ {α β Γ}
+       (u : Val Γ (α ⇒ β)) (v : Val Γ α) (w : Val Γ β) → Set where
     ne⇓  : ∀ {α β Γ} {us : Ne Val Γ (α ⇒ β)} {u} →
       ne us ⟨∙⟩ u ⇓ ne (app us u)
     lam⇓ : ∀ {α β Γ Δ} {t : Tm (α ∷ Δ) β} {ρ : Env Γ Δ} {u v}
@@ -531,24 +534,24 @@ mutual
 
   data QVal_⇓_ : ∀ {α Γ} (u : Val Γ α) (n : Nf Γ α) → Set where
     ⋆⇓ : ∀ {Γ} (us : Ne Val Γ ⋆) {ns}
-      (p : QNeVal us ⇓ ns) →
+      (⇓ns : QNeVal us ⇓ ns) →
       QVal (ne us) ⇓ ne ns
     ⇒⇓ : ∀ {α β Γ} {f : Val Γ (α ⇒ β)} {u n} →
-      (p : wkVal f ⟨∙⟩ ne (var vz) ⇓ u) (q : QVal u ⇓ n) →
+      (⇓u : wkVal f ⟨∙⟩ ne (var vz) ⇓ u) (⇓n : QVal u ⇓ n) →
       QVal f ⇓ lam n
 
   data QNeVal_⇓_ : ∀ {α Γ} (us : Ne Val Γ α) (ns : Ne Nf Γ α) → Set where
-    var⇓ : ∀ {α Γ} {x : Var (α ∷ Γ) α} →
+    var⇓ : ∀ {α Γ} {x : Var Γ α} →
       QNeVal var x ⇓ var x
-    app⇓ : ∀ {α β Γ} {us : Ne Val Γ (α ⇒ β)} {u : Val Γ α} {n′ u′}
-      (p : QNeVal us ⇓ n′) (q : QVal u ⇓ u′) →
-      QNeVal app us u ⇓ app n′ u′
+    app⇓ : ∀ {α β Γ} {us : Ne Val Γ (α ⇒ β)} {u : Val Γ α} {ns n}
+      (⇓ns : QNeVal us ⇓ ns) (⇓n : QVal u ⇓ n) →
+      QNeVal app us u ⇓ app ns n
 
 
 data Nf_⇓_ : ∀ {α Γ} (t : Tm Γ α) (n : Nf Γ α) → Set where
-  nf⇓ : ∀ {α Γ} {t : Tm Γ α} {u m}
-    (p : ⟦ t ⟧ id-env ⇓ u) (q : QVal u ⇓ m) →
-    Nf t ⇓ m
+  nf⇓ : ∀ {α Γ} {t : Tm Γ α} {u n}
+    (⇓u : ⟦ t ⟧ id-env ⇓ u) (⇓n : QVal u ⇓ n) →
+    Nf t ⇓ n
 
 nf-III⇓ : Nf III ⇓ lam (ne (var vz))
 nf-III⇓ = nf⇓ (∙⇓ ƛ⇓ (∙⇓ ƛ⇓ ƛ⇓ (lam⇓ ø⇓)) (lam⇓ ø⇓))
@@ -658,7 +661,52 @@ mutual
     cong₂ _∷_ (val≤∘ η η′ u) (env≤∘ η η′ ρ)
 
 --
--- OPEs commute with embeddings
+-- OPEs commute with evaluation
+--
+
+postulate
+
+  ⟦⟧⇓≤ : ∀ {α Β Γ Δ} (η : Β ≤ Γ)
+    {t : Tm Δ α} {ρ : Env Γ Δ} {u : Val Γ α} →
+    ⟦ t ⟧ ρ ⇓ u →
+    ⟦ t ⟧ env≤ η ρ ⇓ val≤ η u
+
+  ⟦⟧*⇓≤ : ∀ {Β Γ Δ Δ′} (η : Β ≤ Γ)
+    {σ : Sub Δ′ Δ} {ρ : Env Γ Δ′} {ρ′ : Env Γ Δ} →
+    ⟦ σ ⟧* ρ ⇓ ρ′ → ⟦ σ ⟧* env≤ η ρ ⇓ env≤ η ρ′
+
+  ⟨∙⟩⇓≤ : ∀ {α β Β Γ} (η : Β ≤ Γ)
+    {u : Val Γ (α ⇒ β)} {v : Val Γ α} {w : Val Γ β} →
+    u ⟨∙⟩ v ⇓ w →
+    val≤ η u ⟨∙⟩ val≤ η v ⇓ val≤ η w
+
+--
+-- OPEs commute with wkVal.
+--
+
+wkVal∘val≤ : ∀ {Β Γ α β} (η : Β ≤ Γ) (u : Val Γ α) →
+  wkVal (val≤ η u) ≡ val≤ (≤lift {β} η) (wkVal u)
+wkVal∘val≤ η u = begin
+  wkVal (val≤ η u)
+    ≡⟨⟩
+  val≤ (≤weak ≤id) (val≤ η u)
+    ≡⟨ val≤∘ (≤weak ≤id) η u ⟩
+  val≤ (≤weak ≤id ● η) u
+    ≡⟨⟩
+  val≤ (≤weak η) u
+    ≡⟨ cong (λ η′ → val≤ (≤weak η′) u) (sym $ η●≤id η) ⟩
+  val≤ (≤weak (η ● ≤id)) u
+    ≡⟨⟩
+  val≤ (≤lift η ● ≤weak ≤id) u
+    ≡⟨ sym $ val≤∘ (≤lift η) (≤weak ≤id) u ⟩
+  val≤ (≤lift η) (val≤ (≤weak ≤id) u)
+    ≡⟨⟩
+  val≤ (≤lift η) (wkVal u)
+  ∎
+  where open ≡-Reasoning
+
+--
+-- OPEs commute with embeddings.
 --
 
 embVar∘≤ :  ∀ {α Β Γ} (η : Β ≤ Γ) (x : Var Γ α) →
@@ -844,11 +892,34 @@ mutual
     ∎
     where open ≈-Reasoning
 
-postulate
+mutual
 
-  qNeVal≤ : ∀ {α Β Γ} (η : Β ≤ Γ) (us : Ne Val Γ α) (ns : Ne Nf Γ α) →
+  qVal≤ : ∀ {α Β Γ} (η : Β ≤ Γ) {u : Val Γ α} {n : Nf Γ α}
+    (⇓n : QVal u ⇓ n) →
+      QVal val≤ η u ⇓ nf≤ η n
+
+  qVal≤ η (⋆⇓ us ⇓ns) =
+    ⋆⇓ (neVal≤ η us) (qNeVal≤ η ⇓ns)
+  qVal≤ η (⇒⇓ {f = f} {u} {n} ⇓u ⇓n) =
+    ⇒⇓ ⇓u′′′ ⇓n′
+    where
+      ⇓u′ : val≤ (≤lift η) (wkVal f) ⟨∙⟩ ne (var vz) ⇓ val≤ (≤lift η) u
+      ⇓u′ = ⟨∙⟩⇓≤ (≤lift η) ⇓u
+      ⇓u′′′ : wkVal (val≤ η f) ⟨∙⟩ ne (var vz) ⇓ val≤ (≤lift η) u
+      ⇓u′′′ = subst (λ w → w ⟨∙⟩ ne (var vz) ⇓ val≤ (≤lift η) u)
+                    (sym $ wkVal∘val≤ η f) ⇓u′
+      ⇓n′ : QVal val≤ (≤lift η) u ⇓ nf≤ (≤lift η) n
+      ⇓n′ = qVal≤ (≤lift η) ⇓n
+
+  qNeVal≤ : ∀ {α Β Γ} (η : Β ≤ Γ) {us : Ne Val Γ α} {ns : Ne Nf Γ α}
     (⇓ns : QNeVal us ⇓ ns) →
       QNeVal neVal≤ η us ⇓ neNf≤ η ns
+
+  qNeVal≤ η var⇓ = var⇓
+  qNeVal≤ η (app⇓ ⇓ns ⇓n) =
+    app⇓ (qNeVal≤ η ⇓ns) (qVal≤ η ⇓n)
+
+
 
 embNe≈≤ : ∀ {α Β Γ} (η : Β ≤ Γ) (us : Ne Val Γ α) (ns : Ne Nf Γ α) →
   (p : embNeVal us ≈ embNeNf ns) →
@@ -874,7 +945,7 @@ mutual
   scv≤ :  ∀ {α Γ} (u : Val Γ α) (p : SCV u) →
     ∀ {Β} (η : Β ≤ Γ) → SCV (val≤ η u)
   scv≤ {⋆} (ne us) (ns , p , q) η =
-    neNf≤ η ns , qNeVal≤ η us ns p , embNe≈≤ η us ns q
+    neNf≤ η ns , qNeVal≤ η p , embNe≈≤ η us ns q
   scv≤ {α ⇒ β} {Γ} u p {Β} η {Β′} η′ v q with p (η′ ● η) v q
   ... | w , ●⇓w , ●≈w , r =
     w , ∘⇓w , ∘≈w≤ , r
@@ -973,5 +1044,5 @@ mutual
 
     r : SCV (ne (app us≤ u))
     r = neVal⇓→scv (app us≤ u) (app ns≤ m)
-                        (app⇓ (qNeVal≤ η us ns ⇓ns) ⇓m) us∙u≈ns∙m
+                        (app⇓ (qNeVal≤ η ⇓ns) ⇓m) us∙u≈ns∙m
 
