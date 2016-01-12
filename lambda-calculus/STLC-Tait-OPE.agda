@@ -223,8 +223,8 @@ mutual
       (ƛ t) [ σ ] ≈ (ƛ t [ ø ∷ (σ ⊙ ↑) ])
     ≈app : ∀ {α β Γ Δ} {t₁ : Tm Δ (α ⇒ β)} {t₂ : Tm Δ α} {σ : Sub Γ Δ} →
       (t₁ ∙ t₂) [ σ ] ≈ t₁ [ σ ] ∙ t₂ [ σ ]
-    ≈βσ : ∀ {α β Γ Δ} {t : Tm (α ∷ Δ) (α ⇒ β)} {σ : Sub Γ Δ} {t′ : Tm Γ α} →
-               (ƛ t) [ σ ] ∙ t′ ≈ t [ t′ ∷ σ ]
+    ≈βσ : ∀ {α β Γ Δ} {t : Tm (α ∷ Δ) β} {σ : Sub Γ Δ} {t′ : Tm Γ α} →
+      (ƛ t) [ σ ] ∙ t′ ≈ t [ t′ ∷ σ ]
     ≈η : ∀ {α β Γ} {t : Tm Γ (α ⇒ β)} →
       t ≈ (ƛ (t [ ↑ ] ∙ ø))
 
@@ -369,26 +369,46 @@ mutual
 infix 4 _≤_
 
 data _≤_ : (Γ Δ : Ctx) → Set where
-  ≤id : ∀ {Γ} → Γ ≤ Γ
+  ≤[]   : [] ≤ []
   ≤weak : ∀ {α Γ Δ} (η : Γ ≤ Δ) → α ∷ Γ ≤ Δ
   ≤lift : ∀ {α Γ Δ} (η : Γ ≤ Δ) → α ∷ Γ ≤ α ∷ Δ
+
+≤id : ∀ {Γ} → Γ ≤ Γ
+≤id {[]} = ≤[]
+≤id {α ∷ Γ} = ≤lift ≤id
 
 infixr 6 _●_
 
 _●_ : ∀ {Β Γ Δ} (η : Β ≤ Γ) (η′ : Γ ≤ Δ) → Β ≤ Δ
-≤id ● η′ = η′
+≤[] ● ≤[] = ≤[]
 ≤weak η ● η′ = ≤weak (η ● η′)
-≤lift η ● ≤id = ≤lift η
 ≤lift η ● ≤weak η′ = ≤weak (η ● η′)
 ≤lift η ● ≤lift η′ = ≤lift (η ● η′)
 
+≤id●η :  ∀ {Γ Δ} (η : Γ ≤ Δ) → ≤id ● η ≡ η
+≤id●η ≤[] = refl
+≤id●η (≤weak η) = cong ≤weak (≤id●η η)
+≤id●η (≤lift η) = cong ≤lift (≤id●η η)
+
 η●≤id :  ∀ {Γ Δ} (η : Γ ≤ Δ) → η ● ≤id ≡ η
-η●≤id ≤id = refl
+η●≤id ≤[] = refl
 η●≤id (≤weak η) = cong ≤weak (η●≤id η)
-η●≤id (≤lift η) = refl
+η●≤id (≤lift η) = cong ≤lift (η●≤id η)
+
+assoc● :  ∀ {Β Γ₁ Γ₂ Δ} (η : Β ≤ Γ₁) (η′ : Γ₁ ≤ Γ₂) (η′′ : Γ₂ ≤ Δ) →
+  (η ● η′) ● η′′ ≡ η ● (η′ ● η′′)
+assoc● ≤[] ≤[] ≤[] = refl
+assoc● (≤weak η) η′ η′′ = cong ≤weak (assoc● η η′ η′′)
+assoc● (≤lift η) (≤weak η′) η′′ = cong ≤weak (assoc● η η′ η′′)
+assoc● (≤lift η) (≤lift η′) (≤weak η′′) = cong ≤weak (assoc● η η′ η′′)
+assoc● (≤lift η) (≤lift η′) (≤lift η′′) = cong ≤lift (assoc● η η′ η′′)
+
+--
+-- Applying OPEs.
+--
 
 var≤ : ∀ {Γ Δ} (η : Γ ≤ Δ) {α} (x : Var Δ α) → Var Γ α
-var≤ ≤id x = x
+var≤ ≤[] x = x
 var≤ (≤weak η) x = vs (var≤ η x)
 var≤ (≤lift η) vz = vz
 var≤ (≤lift η) (vs x) = vs (var≤ η x)
@@ -415,10 +435,59 @@ mutual
   neNf≤ η (var x) = var (var≤ η x)
   neNf≤ η (app ns n) = app (neNf≤ η ns) (nf≤ η n)
 
+--
+-- ≤ to Sub.
+--
+
 sub≤ : ∀ {Γ Δ} (η : Γ ≤ Δ) → Sub Γ Δ
-sub≤ ≤id = ı
+sub≤ ≤[] = ı
 sub≤ (≤weak η) = sub≤ η ⊙ ↑
 sub≤ (≤lift η) = ø ∷ sub≤ η ⊙ ↑
+
+--
+-- Applying ≤id.
+--
+
+var≤∘≤id : ∀ {α Γ} (x : Var Γ α) → var≤ ≤id x ≡ x
+var≤∘≤id vz = refl
+var≤∘≤id (vs x) = cong vs (var≤∘≤id x)
+
+mutual
+
+  val≤∘≤id : ∀ {α Γ} (u : Val Γ α) → val≤ ≤id u ≡ u
+  val≤∘≤id (ne us) = cong ne (neVal≤∘≤id us)
+  val≤∘≤id (lam t ρ) = cong (lam t) (env≤∘≤id ρ)
+
+  neVal≤∘≤id : ∀ {α Γ} (us : Ne Val Γ α) → neVal≤ ≤id us ≡ us
+  neVal≤∘≤id (var x) = cong var (var≤∘≤id x)
+  neVal≤∘≤id (app us u) = cong₂ app (neVal≤∘≤id us) (val≤∘≤id u)
+
+  env≤∘≤id : ∀ {α Γ} (ρ : Env Γ α) → env≤ ≤id ρ ≡ ρ
+  env≤∘≤id [] = refl
+  env≤∘≤id (u ∷ ρ) = cong₂ _∷_ (val≤∘≤id u) (env≤∘≤id ρ)
+
+  nf≤∘≤id : ∀ {α Γ} (n : Nf Γ α) → nf≤ ≤id n ≡ n
+  nf≤∘≤id (ne ns) = cong ne (neNf≤∘≤id ns)
+  nf≤∘≤id (lam n) = cong lam (nf≤∘≤id n)
+
+  neNf≤∘≤id : ∀ {α Γ} (ns : Ne Nf Γ α) → neNf≤ ≤id ns ≡ ns
+  neNf≤∘≤id (var x) = cong var (var≤∘≤id x)
+  neNf≤∘≤id (app ns u) = cong₂ app (neNf≤∘≤id ns) (nf≤∘≤id u)
+
+--
+-- sub≤ ≤id ≃ ı
+--
+
+ı≃sub≤-≤id : ∀ {Γ} → sub≤ {Γ} ≤id ≃ ı
+ı≃sub≤-≤id {[]} = ≃refl
+ı≃sub≤-≤id {α ∷ Γ} = begin
+  ø ∷ sub≤ ≤id ⊙ ↑
+    ≈⟨ ≃cong∷ ≈refl (≃cong⊙ ı≃sub≤-≤id ≃refl) ⟩
+  ø ∷ ı ⊙ ↑
+    ≈⟨ ≃sym ≃id∷ ⟩
+  ı
+  ∎
+  where open ≃-Reasoning
 
 --
 -- Weakening
@@ -603,35 +672,22 @@ mutual
   lam ø [] , refl
 ⟦⟧-III = refl
 
-
 --
--- Strong computability.
+-- Composing OPEs.
 --
 
-SCV : ∀ {α Γ} (u : Val Γ α) → Set
-SCV {⋆} {Γ} (ne us) = ∃ λ (ns : Ne Nf Γ ⋆) →
-  QNeVal us ⇓ ns
-  × embNeVal us ≈ embNeNf ns
-SCV {α ⇒ β} {Γ} u = ∀ {Β} (η : Β ≤ Γ) (v : Val Β α) (q : SCV v) →
-  ∃ λ w → (val≤ η u) ⟨∙⟩ v ⇓ w
-    × embVal (val≤ η u) ∙ embVal v ≈ embVal w
-    × SCV w
+var≤-≤id : ∀ {α Γ}(x : Var Γ α) → var≤ ≤id x ≡ x
+var≤-≤id vz = refl
+var≤-≤id (vs x) = cong vs (var≤-≤id x)
 
-SCE : ∀ {Γ Δ} (ρ : Env Γ Δ) → Set
-SCE [] = ⊤
-SCE (u ∷ ρ) = SCV u × SCE ρ
-
---
--- Weakening for SCV & SCE.
 
 -- Variables.
 
 var≤∘ : ∀ {α Γ₁ Γ₂ Γ₃}
   (η : Γ₁ ≤ Γ₂) (η′ : Γ₂ ≤ Γ₃) (x : Var Γ₃ α) →
   var≤ η (var≤ η′ x) ≡ var≤ (η ● η′) x
-var≤∘ ≤id η′ x = refl
+var≤∘ ≤[] ≤[] x = refl
 var≤∘ (≤weak η) η′ x = cong vs (var≤∘ η η′ x)
-var≤∘ (≤lift η) ≤id x = refl
 var≤∘ (≤lift η) (≤weak η′) x = cong vs (var≤∘ η η′ x)
 var≤∘ (≤lift η) (≤lift η′) vz = refl
 var≤∘ (≤lift η) (≤lift η′) (vs x) = cong vs (var≤∘ η η′ x)
@@ -701,8 +757,8 @@ wkVal∘val≤ η u = begin
     ≡⟨⟩
   val≤ (≤weak ≤id) (val≤ η u)
     ≡⟨ val≤∘ (≤weak ≤id) η u ⟩
-  val≤ (≤weak ≤id ● η) u
-    ≡⟨⟩
+  val≤ (≤weak (≤id ● η)) u
+    ≡⟨ cong (λ η′ → val≤ (≤weak η′) u) (≤id●η η) ⟩
   val≤ (≤weak η) u
     ≡⟨ cong (λ η′ → val≤ (≤weak η′) u) (sym $ η●≤id η) ⟩
   val≤ (≤weak (η ● ≤id)) u
@@ -721,7 +777,7 @@ wkVal∘val≤ η u = begin
 
 embVar∘≤ :  ∀ {α Β Γ} (η : Β ≤ Γ) (x : Var Γ α) →
   embVar (var≤ η x) ≈ embVar x [ sub≤ η ]
-embVar∘≤ ≤id x = ≈sym ≈id
+embVar∘≤ ≤[] x = ≈sym ≈id
 embVar∘≤ (≤weak η) vz = begin
   embVar (var≤ (≤weak η) vz)
     ≡⟨⟩
@@ -809,7 +865,7 @@ mutual
 
   embEnv∘≤ : ∀ {Β Γ Δ} (η : Β ≤ Γ) (ρ : Env Γ Δ) →
     embEnv (env≤ η ρ) ≃ embEnv ρ ⊙ sub≤ η
-  embEnv∘≤ ≤id [] = ≃sym ≃idr
+  embEnv∘≤ ≤[] [] = ≃sym ≃idr
   embEnv∘≤ {Γ = []} (≤weak η) [] = begin
     embEnv (env≤ (≤weak η) [])
       ≡⟨⟩
@@ -862,28 +918,6 @@ mutual
     embEnv (u ∷ ρ) ⊙ sub≤ η
     ∎
     where open ≃-Reasoning
-
---
--- ... ≃ ı
---
-
-ı≃sub≤-≤id : ∀ {Γ} → sub≤ {Γ} ≤id ≃ ı
-ı≃sub≤-≤id {Γ} = ≃refl
-
-embEnv∘id-env : ∀ {Γ} → embEnv (id-env {Γ}) ≃ ı
-embEnv∘id-env {[]} = ≃refl
-embEnv∘id-env {x ∷ Γ} = begin
-  ø ∷ embEnv (wkEnv id-env)
-    ≡⟨⟩
-  ø ∷ embEnv (env≤ wk id-env)
-    ≈⟨ ≃cong∷ ≈refl (embEnv∘≤ wk id-env) ⟩
-  ø ∷ embEnv id-env ⊙ (ı ⊙ ↑)
-    ≈⟨ ≃cong∷ ≈refl (≃cong⊙ embEnv∘id-env ≃idl) ⟩
-  ø ∷ (ı ⊙ ↑)
-    ≈⟨ ≃sym ≃id∷ ⟩
-  ı ∎
-  where open ≃-Reasoning
-
 
 -- Normal forms.
 
@@ -965,6 +999,25 @@ embNe≈≤ η us ns p = begin
   where open ≈-Reasoning
 
 --
+-- Strong computability.
+--
+
+SCV : ∀ {α Γ} (u : Val Γ α) → Set
+SCV {⋆} {Γ} (ne us) = ∃ λ (ns : Ne Nf Γ ⋆) →
+  QNeVal us ⇓ ns
+  × embNeVal us ≈ embNeNf ns
+SCV {α ⇒ β} {Γ} u = ∀ {Β} (η : Β ≤ Γ) (v : Val Β α) (q : SCV v) →
+  ∃ λ w → (val≤ η u) ⟨∙⟩ v ⇓ w
+    × embVal (val≤ η u) ∙ embVal v ≈ embVal w
+    × SCV w
+
+SCE : ∀ {Γ Δ} (ρ : Env Γ Δ) → Set
+SCE [] = ⊤
+SCE (u ∷ ρ) = SCV u × SCE ρ
+
+--
+-- Weakening for SCV & SCE.
+--
 -- (p : SCV u) → ∀ {Β} (η : Β ≤ Γ) → SCV (val≤ η u)
 -- (r : SCE ρ) → ∀ {Β} (η : Β ≤ Γ) → SCE (env≤ η ρ)
 --
@@ -1009,6 +1062,13 @@ embVal∘wkVal u = begin
     ≡⟨⟩
   embVal (val≤ wk u)
     ≈⟨ embVal∘≤ wk u ⟩
+  embVal u [ sub≤ ≤id ⊙ ↑ ]
+    ≈⟨ ≈cong[] ≈refl (≃cong⊙ ı≃sub≤-≤id ≃refl) ⟩
+  {-
+    ≈⟨ embVal∘≤ wk u ⟩
+  embVal u [ ı ⊙ ↑ ]
+    ≈⟨ ≈cong[] ≈refl ≃idl ⟩
+  -}
   embVal u [ ı ⊙ ↑ ]
     ≈⟨ ≈cong[] ≈refl ≃idl ⟩
   embVal u [ ↑ ]
@@ -1075,26 +1135,104 @@ mutual
     r = neVal⇓→scv (app us≤ u) (app ns≤ m)
                         (app⇓ (qNeVal≤ η ⇓ns) ⇓m) us∙u≈ns∙m
 
+embEnv∘id-env : ∀ {Γ} → embEnv (id-env {Γ}) ≃ ı
+embEnv∘id-env {[]} = ≃refl
+embEnv∘id-env {x ∷ Γ} = begin
+  ø ∷ embEnv (wkEnv id-env)
+    ≡⟨⟩
+  ø ∷ embEnv (env≤ wk id-env)
+    ≈⟨ ≃cong∷ ≈refl (embEnv∘≤ wk id-env) ⟩
+  ø ∷ embEnv id-env ⊙ (sub≤ ≤id ⊙ ↑)
+    ≈⟨ ≃cong∷ ≈refl (≃cong⊙ ≃refl (≃cong⊙ ı≃sub≤-≤id ≃refl)) ⟩
+  ø ∷ embEnv id-env ⊙ (ı ⊙ ↑)
+    ≈⟨ ≃cong∷ ≈refl (≃cong⊙ embEnv∘id-env ≃idl) ⟩
+  ø ∷ (ı ⊙ ↑)
+    ≈⟨ ≃sym ≃id∷ ⟩
+  ı ∎
+  where open ≃-Reasoning
 
-sc-var : ∀ {α Γ} (x : Var Γ α) → SCV (ne (var x))
-sc-var x = neVal⇓→scv (var x) (var x) var⇓ ≈refl
+-- SCE id-env
+
+scv-var : ∀ {α Γ} (x : Var Γ α) → SCV (ne (var x))
+scv-var x = neVal⇓→scv (var x) (var x) var⇓ ≈refl
 
 sce-id-env : ∀ {Γ} → SCE (id-env {Γ})
 sce-id-env {[]} = tt
-sce-id-env {α ∷ Γ} = sc-var vz , sce≤ id-env sce-id-env wk
+sce-id-env {α ∷ Γ} = scv-var vz , sce≤ id-env sce-id-env wk
 
 --
 -- The fundamental theorem about strong computability:
 -- all terms are "strongly computable".
 --
 
-postulate
+mutual
 
   all-scv : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) (p : SCE ρ) →
     ∃ λ u → ⟦ t ⟧ ρ ⇓ u × (t [ embEnv ρ ] ≈ embVal u) × SCV u
+  all-scv ø (u ∷ ρ) (p , q) =
+    u , ø⇓ , ≈proj , p
+  all-scv {β} {Γ} {Δ} (t ∙ t′) ρ r with all-scv t ρ r | all-scv t′ ρ r
+  ... | u , ⇓u , ≈u , p | v , ⇓v , ≈v , q with p ≤id v q
+     --u ⟨∙⟩ v & {!!}
+  ... | w , ⇓w , ≈w , r′ =
+    w , ∙⇓ ⇓u ⇓v ⇓w′ , ≈w′ , r′
+    where
+    open ≈-Reasoning
+    ⇓w′ : u ⟨∙⟩ v ⇓ w
+    ⇓w′ = subst (λ u′ → u′ ⟨∙⟩ v ⇓ w) (val≤∘≤id u) ⇓w
+    ≈w′ : (t ∙ t′) [ embEnv ρ ] ≈ embVal w
+    ≈w′ = begin
+      (t ∙ t′) [ embEnv ρ ]
+        ≈⟨ ≈app ⟩
+      t [ embEnv ρ ] ∙ t′ [ embEnv ρ ]
+        ≈⟨ ≈cong∙ ≈u ≈v ⟩
+      embVal u ∙ embVal v
+        ≡⟨ cong₂ _∙_ (cong embVal (sym $ val≤∘≤id u)) refl ⟩
+      embVal (val≤ ≤id u) ∙ embVal v
+        ≈⟨ ≈w ⟩
+      embVal w
+      ∎
+  all-scv (ƛ t) ρ r
+    = lam t ρ , ƛ⇓ , ≈refl , r′
+    where
+    r′ : SCV (lam t ρ)
+    r′ η u p with all-scv t (u ∷ env≤ η ρ) (p , sce≤ ρ r η)
+    ... | v , ∷⇓v , ≈v , q
+      = v , lam⇓ ∷⇓v , ≈v′ , q
+      where
+      open ≈-Reasoning
+      ≈v′ : (ƛ t) [ embEnv (env≤ η ρ) ] ∙ embVal u ≈ embVal v
+      ≈v′ = begin
+        (ƛ t) [ embEnv (env≤ η ρ) ] ∙ embVal u
+          ≈⟨ ≈βσ ⟩
+        t [ embVal u ∷ embEnv (env≤ η ρ) ]
+          ≈⟨ ≈v ⟩
+        embVal v
+        ∎
+  all-scv (t [ σ ]) ρ r with all-sce σ ρ r
+  ... | ρ′ , ⇓ρ′ , ≃ρ′ , r′ with all-scv t ρ′ r′
+  ... | u , ⇓u , ≈u , p =
+    u , ⇓u′ , ≈u′ , p
+    where
+    open ≈-Reasoning
+    ⇓u′ : ⟦ t [ σ ] ⟧ ρ ⇓ u
+    ⇓u′ = []⇓ ⇓ρ′ ⇓u
+    ≈u′ : t [ σ ] [ embEnv ρ ] ≈ embVal u
+    ≈u′ = begin
+      t [ σ ] [ embEnv ρ ]
+        ≈⟨ ≈sym ≈comp ⟩
+      t [ σ ⊙ embEnv ρ ]
+        ≈⟨ ≈cong[] ≈refl ≃ρ′ ⟩
+      t [ embEnv ρ′ ]
+        ≈⟨ ≈u ⟩
+      embVal u
+      ∎
 
-  all-sce : ∀ {Β Γ Δ} (σ : Sub Γ Δ) (ρ : Env Β Γ) (p : SCE ρ) →
-    ∃ λ ρ′ → ⟦ σ ⟧* ρ ⇓ ρ′ × (σ ⊙ embEnv ρ ≃ embEnv ρ′) × SCE ρ′
+  postulate
+
+    all-sce : ∀ {Β Γ Δ} (σ : Sub Γ Δ) (ρ : Env Β Γ) (p : SCE ρ) →
+      ∃ λ ρ′ → ⟦ σ ⟧* ρ ⇓ ρ′ × (σ ⊙ embEnv ρ ≃ embEnv ρ′) × SCE ρ′
+
 
 --
 -- All terms are normalizable.
