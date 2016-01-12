@@ -1167,13 +1167,13 @@ sce-id-env {α ∷ Γ} = scv-var vz , sce≤ id-env sce-id-env wk
 
 mutual
 
-  all-scv : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) (p : SCE ρ) →
+  all-scv : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) (r : SCE ρ) →
     ∃ λ u → ⟦ t ⟧ ρ ⇓ u × (t [ embEnv ρ ] ≈ embVal u) × SCV u
-  all-scv ø (u ∷ ρ) (p , q) =
+
+  all-scv ø (u ∷ ρ) (p , r) =
     u , ø⇓ , ≈proj , p
   all-scv {β} {Γ} {Δ} (t ∙ t′) ρ r with all-scv t ρ r | all-scv t′ ρ r
   ... | u , ⇓u , ≈u , p | v , ⇓v , ≈v , q with p ≤id v q
-     --u ⟨∙⟩ v & {!!}
   ... | w , ⇓w , ≈w , r′ =
     w , ∙⇓ ⇓u ⇓v ⇓w′ , ≈w′ , r′
     where
@@ -1192,13 +1192,13 @@ mutual
         ≈⟨ ≈w ⟩
       embVal w
       ∎
-  all-scv (ƛ t) ρ r
-    = lam t ρ , ƛ⇓ , ≈refl , r′
+  all-scv (ƛ t) ρ r =
+    lam t ρ , ƛ⇓ , ≈refl , r′
     where
     r′ : SCV (lam t ρ)
     r′ η u p with all-scv t (u ∷ env≤ η ρ) (p , sce≤ ρ r η)
-    ... | v , ∷⇓v , ≈v , q
-      = v , lam⇓ ∷⇓v , ≈v′ , q
+    ... | v , ∷⇓v , ≈v , q =
+      v , lam⇓ ∷⇓v , ≈v′ , q
       where
       open ≈-Reasoning
       ≈v′ : (ƛ t) [ embEnv (env≤ η ρ) ] ∙ embVal u ≈ embVal v
@@ -1228,11 +1228,44 @@ mutual
       embVal u
       ∎
 
-  postulate
+  all-sce : ∀ {Β Γ Δ} (σ : Sub Γ Δ) (ρ : Env Β Γ) (r : SCE ρ) →
+    ∃ λ ρ′ → ⟦ σ ⟧* ρ ⇓ ρ′ × (σ ⊙ embEnv ρ ≃ embEnv ρ′) × SCE ρ′
 
-    all-sce : ∀ {Β Γ Δ} (σ : Sub Γ Δ) (ρ : Env Β Γ) (p : SCE ρ) →
-      ∃ λ ρ′ → ⟦ σ ⟧* ρ ⇓ ρ′ × (σ ⊙ embEnv ρ ≃ embEnv ρ′) × SCE ρ′
-
+  all-sce ı ρ r =
+    ρ , ι⇓ , ≃idl , r
+  all-sce (σ ⊙ σ′) ρ r with all-sce σ′ ρ r
+  ... | ρ′ , ⇓ρ′ , ≃ρ′ , r′ with all-sce σ ρ′ r′
+  ... | ρ′′ , ⇓ρ′′ , ≃ρ′′ , r′′ =
+    ρ′′ , ⊙⇓ ⇓ρ′ ⇓ρ′′ , ≃ρ′′′ , r′′
+    where
+    open ≃-Reasoning
+    ≃ρ′′′ : (σ ⊙ σ′) ⊙ embEnv ρ ≃ embEnv ρ′′
+    ≃ρ′′′ = begin
+      (σ ⊙ σ′) ⊙ embEnv ρ
+        ≈⟨ ≃assoc ⟩
+      σ ⊙ (σ′ ⊙ embEnv ρ)
+        ≈⟨ ≃cong⊙ ≃refl ≃ρ′ ⟩
+      σ ⊙ embEnv ρ′
+        ≈⟨ ≃ρ′′ ⟩
+      embEnv ρ′′
+      ∎
+  all-sce (t ∷ σ) ρ r with all-scv t ρ r | all-sce σ ρ r
+  ... | u , ⇓u , ≈u , p | ρ′ , ⇓ρ′ , ≃ρ′ , r′ =
+    u ∷ ρ′ , ∷⇓ ⇓u ⇓ρ′ , ≃u∷ρ′ , (p , r′)
+    where
+    open ≃-Reasoning
+    ≃u∷ρ′ : (t ∷ σ) ⊙ embEnv ρ ≃ embVal u ∷ embEnv ρ′
+    ≃u∷ρ′ = begin
+      (t ∷ σ) ⊙ embEnv ρ
+        ≈⟨ ≃cons ⟩
+      t [ embEnv ρ ] ∷ (σ ⊙ embEnv ρ)
+        ≈⟨ ≃cong∷ ≈u ≃refl ⟩
+      embVal u ∷ (σ ⊙ embEnv ρ)
+        ≈⟨ ≃cong∷ ≈refl ≃ρ′ ⟩
+      embVal u ∷ embEnv ρ′
+      ∎
+  all-sce ↑ (u ∷ ρ) (p , r) =
+    ρ , ↑⇓ , ≃wk , r
 
 --
 -- All terms are normalizable.
@@ -1272,3 +1305,19 @@ complete t with all-scv t id-env sce-id-env
   embNf n
   ∎
   where open ≈-Reasoning
+
+--
+-- Stability: 
+--
+
+postulate
+
+  stable : ∀ {α Γ} (n : Nf Γ α) → nf (embNf n) ≡ n
+
+--
+-- Soundness normalisation takes convertible terms to identical
+-- normal forms.
+--
+
+postulate
+  sound : ∀ {α Γ} (t t' : Tm Γ α) → t ≈ t' → nf t ≡ nf t'
