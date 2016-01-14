@@ -462,7 +462,7 @@ mutual
   neVal≤∘≤id (var x) = cong var (var≤∘≤id x)
   neVal≤∘≤id (app us u) = cong₂ app (neVal≤∘≤id us) (val≤∘≤id u)
 
-  env≤∘≤id : ∀ {α Γ} (ρ : Env Γ α) → env≤ ≤id ρ ≡ ρ
+  env≤∘≤id : ∀ {Γ Δ} (ρ : Env Δ Γ) → env≤ ≤id ρ ≡ ρ
   env≤∘≤id [] = refl
   env≤∘≤id (u ∷ ρ) = cong₂ _∷_ (val≤∘≤id u) (env≤∘≤id ρ)
 
@@ -588,7 +588,7 @@ mutual
       ⟦ σ ⊙ σ′ ⟧* ρ ⇓ ρ′′
     ∷⇓ : ∀ {α Γ Δ Σ} {t : Tm Δ α} {σ : Sub Δ Σ} {ρ : Env Γ Δ} {u ρ′}
       (⇓u : ⟦ t ⟧ ρ ⇓ u) (⇓ρ′ : ⟦ σ ⟧* ρ ⇓ ρ′) →
-      ⟦ t ∷ σ ⟧* ρ ⇓ u ∷ ρ′
+      ⟦ t ∷ σ ⟧* ρ ⇓ (u ∷ ρ′)
     ↑⇓ : ∀ {α Γ Δ} {u : Val Γ α} {ρ : Env Γ Δ} →
       ⟦ ↑ ⟧* (u ∷ ρ) ⇓ ρ
 
@@ -755,17 +755,17 @@ wkVal∘val≤ : ∀ {Β Γ α β} (η : Β ≤ Γ) (u : Val Γ α) →
 wkVal∘val≤ η u = begin
   wkVal (val≤ η u)
     ≡⟨⟩
-  val≤ (≤weak ≤id) (val≤ η u)
-    ≡⟨ val≤∘ (≤weak ≤id) η u ⟩
+  val≤ wk (val≤ η u)
+    ≡⟨ val≤∘ wk η u ⟩
   val≤ (≤weak (≤id ● η)) u
     ≡⟨ cong (λ η′ → val≤ (≤weak η′) u) (≤id●η η) ⟩
   val≤ (≤weak η) u
     ≡⟨ cong (λ η′ → val≤ (≤weak η′) u) (sym $ η●≤id η) ⟩
   val≤ (≤weak (η ● ≤id)) u
     ≡⟨⟩
-  val≤ (≤lift η ● ≤weak ≤id) u
-    ≡⟨ sym $ val≤∘ (≤lift η) (≤weak ≤id) u ⟩
-  val≤ (≤lift η) (val≤ (≤weak ≤id) u)
+  val≤ (≤lift η ● wk) u
+    ≡⟨ sym $ val≤∘ (≤lift η) wk u ⟩
+  val≤ (≤lift η) (val≤ wk u)
     ≡⟨⟩
   val≤ (≤lift η) (wkVal u)
   ∎
@@ -1140,7 +1140,7 @@ embEnv∘id-env {[]} = ≃refl
 embEnv∘id-env {x ∷ Γ} = begin
   ø ∷ embEnv (wkEnv id-env)
     ≡⟨⟩
-  ø ∷ embEnv (env≤ wk id-env)
+  ø ∷ embEnv (wkEnv id-env)
     ≈⟨ ≃cong∷ ≈refl (embEnv∘≤ wk id-env) ⟩
   ø ∷ embEnv id-env ⊙ (sub≤ ≤id ⊙ ↑)
     ≈⟨ ≃cong∷ ≈refl (≃cong⊙ ≃refl (≃cong⊙ ı≃sub≤-≤id ≃refl)) ⟩
@@ -1267,13 +1267,6 @@ mutual
   all-sce ↑ (u ∷ ρ) (p , r) =
     ρ , ↑⇓ , ≃wk , r
 
---
--- All terms are normalizable.
---
-
-postulate
-  all-nf : ∀ {α Γ} (t : Tm Γ α) →
-    ∃ λ n → Nf t ⇓ n × (t ≈ embNf n)
 
 --
 -- Normalizer!
@@ -1282,8 +1275,67 @@ postulate
 nf : ∀ {α Γ} (t : Tm Γ α) → Nf Γ α
 nf t with all-scv t id-env sce-id-env
 ... | u , ⇓u , ≈u , p with scv→val⇓ u p
-... | n , ⇓n , ≈n
-  = n
+... | n , ⇓n , ≈n = n
+
+--
+-- Stability: nf (embNf n) ≡ n .
+--
+
+-- Nf embNf n ⇓ n
+
+var≤-vs : ∀ {α γ Β Γ} (η : Β ≤ γ ∷ Γ) (x : Var Γ α) →
+  var≤ η (vs x) ≡ var≤ (η ● wk) x
+var≤-vs (≤weak η) x =
+  cong vs (var≤-vs η x)
+var≤-vs (≤lift η) x = -- rewrite η●≤id η =
+  cong (λ η′ → vs (var≤ η′ x)) (sym $ η●≤id η)
+
+⟦embVar⟧≤⇓ : ∀ {α Β Γ} (x : Var Γ α) (η : Β ≤ Γ) →
+  ⟦ embVar x ⟧ (env≤ η id-env) ⇓ ne (var (var≤ η x))
+⟦embVar⟧≤⇓ vz η = ø⇓
+⟦embVar⟧≤⇓ (vs x) η with ⟦embVar⟧≤⇓ x (η ● wk)
+... | p rewrite sym $ env≤∘ η wk id-env | sym $ var≤-vs η x  =
+  []⇓ ↑⇓ p
+
+⟦embVar⟧⇓ : ∀ {α Γ} (x : Var Γ α) →
+  ⟦ embVar x ⟧ id-env ⇓ ne (var x)
+⟦embVar⟧⇓ {α} {Γ} x with ⟦embVar⟧≤⇓ x ≤id
+... | r rewrite env≤∘≤id {Γ} {Γ} id-env | var≤∘≤id x
+  = r
+
+mutual
+
+  stable⇓ : ∀ {α Γ} (n : Nf Γ α) → Nf embNf n ⇓ n
+  stable⇓ (ne ns) with stable*⇓ ns
+  ... | us , ⇓us , ⇓ns =
+    nf⇓ ⇓us (⋆⇓ us ⇓ns)
+  stable⇓ (lam n) with stable⇓ n
+  ... | nf⇓ ⇓u ⇓n =
+    nf⇓ ƛ⇓ (⇒⇓ (lam⇓ ⇓u) ⇓n)
+
+  stable*⇓ : ∀ {α Γ} (ns : Ne Nf Γ α) →
+    ∃ λ (us : Ne Val Γ α) →
+      ⟦ embNeNf ns ⟧ id-env ⇓ ne us × QNeVal us ⇓ ns
+  stable*⇓ (var x) = var x , ⟦embVar⟧⇓ x , var⇓
+  stable*⇓ (app ns n) with stable*⇓ ns | stable⇓ n
+  ... | us , ⇓us , ⇓ns | nf⇓ {u = u} ⇓u ⇓n =
+    app us u , ∙⇓ ⇓us ⇓u ne⇓ , app⇓ ⇓ns ⇓n
+
+postulate
+
+  ⟦⟧⇓-det : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) u u′ →
+    ⟦ t ⟧ ρ ⇓ u → ⟦ t ⟧ ρ ⇓ u′ → u ≡ u′
+
+{-
+-- nf (embNf n) ≡ n
+
+stable≡ : ∀ {α Γ} (n : Nf Γ α) → nf (embNf n) ≡ n
+stable≡ n with all-scv (embNf n) id-env sce-id-env
+... | u , ⇓u , ≈u , p with scv→val⇓ u p
+... | n′ , ⇓n′ , ≈n′ with stable⇓ n
+... | nf⇓ {u = u′} ⇓u' ⇓n with ⟦⟧⇓-det (embNf n) id-env u u′ ⇓u ⇓u'
+... | u≡u′ = {!!}
+-}
 
 --
 -- Completeness: terms are convertible to their normal forms.
@@ -1307,7 +1359,7 @@ complete t with all-scv t id-env sce-id-env
   where open ≈-Reasoning
 
 --
--- Stability: 
+-- Stability: nf (embNf n) ≡ n
 --
 
 postulate
