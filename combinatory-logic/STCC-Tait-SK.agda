@@ -91,8 +91,8 @@ data _≈_  : {α : Ty} (x y : Tm α) → Set where
              K ∙ x ∙ y ≈ x
   ≈S     : ∀ {α β γ} {x : Tm (α ⇒ β ⇒ γ)} {y : Tm (α ⇒ β)} {z : Tm α} →
              S ∙ x ∙ y ∙ z ≈ (x ∙ z) ∙ (y ∙ z)
-  ∙-cong : ∀ {α β} {x y : Tm (α ⇒ β)} {x′ y′ : Tm α} →
-             x ≈ y → x′ ≈ y′ → x ∙ x′ ≈ y ∙ y′
+  ∙-cong : ∀ {α β} {x x′ : Tm (α ⇒ β)} {y y′ : Tm α} →
+             x ≈ x′ → y ≈ y′ → x ∙ y ≈ x′ ∙ y′
 
 ≈setoid : {α : Ty} → Setoid _ _
 
@@ -122,13 +122,13 @@ data Nf : Ty → Set where
   S2 : ∀ {α β γ} (u : Nf (α ⇒ β ⇒ γ)) (v : Nf (α ⇒ β))→
          Nf (α ⇒ γ)
 
-reify : ∀ {α} (n : Nf α) → Tm α
+⌜_⌝ : ∀ {α} (n : Nf α) → Tm α
 
-reify K0 = K
-reify (K1 u) = K ∙ reify u
-reify S0 = S
-reify (S1 u) = S ∙ reify u
-reify (S2 u v) = S ∙ reify u ∙ reify v
+⌜ K0 ⌝ = K
+⌜ K1 u ⌝ = K ∙ ⌜ u ⌝
+⌜ S0 ⌝ = S
+⌜ S1 u ⌝ = S ∙ ⌜ u ⌝
+⌜ S2 u v ⌝ = S ∙ ⌜ u ⌝ ∙ ⌜ v ⌝
 
 --
 -- There is no non-functional normal form!
@@ -148,7 +148,7 @@ module NaiveNorm where
   {-# TERMINATING #-}
 
   _⟨∙⟩_ : ∀ {α β} (u : Nf (α ⇒ β)) (v : Nf α) → Nf β
-  K0 ⟨∙⟩ v = K1 v
+  K0 ⟨∙⟩ u = K1 u
   K1 u ⟨∙⟩ v = u
   S0 ⟨∙⟩ u = S1 u
   S1 u ⟨∙⟩ v = S2 u v
@@ -159,8 +159,12 @@ module NaiveNorm where
   ⟦ S ⟧ = S0
   ⟦ x ∙ y ⟧ = ⟦ x ⟧ ⟨∙⟩ ⟦ y ⟧
 
+
+  ⟦III⟧ : ⟦ III ⟧ ≡ S2 K0 (K0 {⋆} {⋆})
+  ⟦III⟧ = refl
+
   norm : ∀ {α} → Tm α → Tm α
-  norm = reify ∘ ⟦_⟧
+  norm = ⌜_⌝ ∘ ⟦_⟧
 
   norm-III : norm III ≡ S ∙ K ∙ K
   norm-III = refl
@@ -196,63 +200,6 @@ data _⇓_ : {α : Ty} (x : Tm α) (u : Nf α) → Set where
   ∙⇓ : ∀ {α β : Ty} {x : Tm (α ⇒ β)} {y : Tm α} {u v w}
     (x⇓u : x ⇓ u) (y⇓v : y ⇓ v) (⇓w : u ⟨∙⟩ v ⇓ w)  →
     x ∙ y ⇓ w
-
---
--- Determinism: x ⇓ u → x ⇓ v → u ≡ v
---
-
-⟨∙⟩⇓-det : ∀ {α β} {u : Nf (α ⇒ β)} {v : Nf α} {w w′ : Nf β} →
-  u ⟨∙⟩ v ⇓ w → u ⟨∙⟩ v ⇓ w′ → w ≡ w′
-⟨∙⟩⇓-det K0⇓ K0⇓ = refl
-⟨∙⟩⇓-det K1⇓ K1⇓ = refl
-⟨∙⟩⇓-det S0⇓ S0⇓ = refl
-⟨∙⟩⇓-det S1⇓ S1⇓ = refl
-⟨∙⟩⇓-det (S2⇓ p q r) (S2⇓ p′ q′ r′)
-  rewrite ⟨∙⟩⇓-det p p′ | ⟨∙⟩⇓-det q q′ | ⟨∙⟩⇓-det r r′
-  = refl
-
-⇓-det : ∀ {α} {x : Tm α} {u u′ : Nf α} →
-  x ⇓ u → x ⇓ u′ → u ≡ u′
-⇓-det K⇓ K⇓ = refl
-⇓-det S⇓ S⇓ = refl
-⇓-det (∙⇓ p q r) (∙⇓ p′ q′ r′)
-  rewrite ⇓-det p p′ | ⇓-det q q′ | ⟨∙⟩⇓-det r r′
-  = refl
-
---
--- Soundness: terms are convertible to their normal forms
---     x ⇓ u → x ≈ reify u
--- 
-
-⟨∙⟩⇓-sound : ∀ {α β} {u : Nf (α ⇒ β)} {v : Nf α} {w : Nf β} →
-  u ⟨∙⟩ v ⇓ w → reify u ∙ reify v ≈ reify w
-⟨∙⟩⇓-sound K0⇓ = ≈refl
-⟨∙⟩⇓-sound K1⇓ = ≈K
-⟨∙⟩⇓-sound S0⇓ = ≈refl
-⟨∙⟩⇓-sound S1⇓ = ≈refl
-⟨∙⟩⇓-sound (S2⇓ {u = u} {v} {w} {w′} {w′′} {w′′′} p q r) = begin
-  S ∙ reify u ∙ reify v ∙ reify w
-    ≈⟨ ≈S ⟩
-  (reify u ∙ reify w) ∙ (reify v ∙ reify w)
-    ≈⟨ ∙-cong (⟨∙⟩⇓-sound p) (⟨∙⟩⇓-sound q) ⟩
-  reify w′ ∙ reify w′′
-    ≈⟨ ⟨∙⟩⇓-sound r ⟩
-  reify w′′′
-  ∎
-  where open ≈-Reasoning
-
-⇓-sound : ∀ {α} {x : Tm α} {u : Nf α} →
-  x ⇓ u → x ≈ reify u
-⇓-sound K⇓ = ≈refl
-⇓-sound S⇓ = ≈refl
-⇓-sound (∙⇓ {x = x} {y} {u} {v} {uv} x⇓u y⇓v ⇓uv) = begin
-  x ∙ y
-    ≈⟨ ∙-cong (⇓-sound x⇓u) (⇓-sound y⇓v) ⟩
-  reify u ∙ reify v
-    ≈⟨ ⟨∙⟩⇓-sound ⇓uv ⟩
-  reify uv
-  ∎
-  where open ≈-Reasoning
 
 --
 -- Now we are going to prove that
@@ -342,31 +289,6 @@ all-sc (x ∙ y) =
   in w , ∙⇓ ⇓u ⇓v ⇓w , r
 
 --
--- Completeness: the normal forms of two convertible terms are equal
---     x ≈ y → x ⇓ u → y ⇓ v → u ≡ v
---
-
-⇓-complete : ∀ {α} {x y : Tm α} {u v : Nf α} →
-  x ≈ y → x ⇓ u → y ⇓ v → u ≡ v
-
-⇓-complete ≈refl x⇓u x⇓v =
-  ⇓-det x⇓u x⇓v
-⇓-complete (≈sym x≈y) x⇓u x⇓v =
-  sym $ ⇓-complete x≈y x⇓v x⇓u
-⇓-complete (≈trans {α} {x} {z} {y} x≈z z≈y) x⇓u y⇓v =
-  let w , z⇓w , r = all-sc z
-  in trans (⇓-complete x≈z x⇓u z⇓w) (⇓-complete z≈y z⇓w y⇓v)
-⇓-complete ≈K (∙⇓ (∙⇓ K⇓ x⇓′ K0⇓) y⇓ K1⇓) x⇓′′ =
-  ⇓-det x⇓′ x⇓′′
-⇓-complete ≈S
-  (∙⇓ (∙⇓ (∙⇓ S⇓ x⇓ S0⇓) y⇓ S1⇓) z⇓ (S2⇓ ⇓uw ⇓vw ⇓uwvw))
-  xzyz⇓ =
-  ⇓-det (∙⇓ (∙⇓ x⇓ z⇓ ⇓uw) (∙⇓ y⇓ z⇓ ⇓vw) ⇓uwvw) xzyz⇓
-⇓-complete (∙-cong x≈y x′≈y′) (∙⇓ x⇓u x′⇓u′ ⇓uv) (∙⇓ y⇓v y′⇓v′ ⇓u′v′)
-  rewrite ⇓-complete x≈y x⇓u y⇓v | ⇓-complete x′≈y′ x′⇓u′ y′⇓v′
-  = ⟨∙⟩⇓-det ⇓uv ⇓u′v′
-
---
 -- All terms are normalizable.
 --    ∀ x → ∃ λ u → x ⇓ u
 --
@@ -376,13 +298,132 @@ all-⇓ x =
   let u , ⇓u , p = all-sc x
   in u , ⇓u
 
+
+--
+-- Normalizer!
+--
+
+nf : ∀ {α} (x : Tm α) → Nf α
+nf x with all-sc x
+... | u , ⇓u , p = u
+
+
 module TerminatingNorm where
 
+  -- The proof of (∃ λ u → x ⇓ u) contains the result of evaluating x.
+  -- Hence, we can extract and use it.
+
   norm : ∀ {α} → Tm α → Tm α
-  norm x = reify (proj₁ (all-⇓ x))
+  norm x = ⌜ proj₁ (all-⇓ x) ⌝
 
   norm-III : norm III ≡ S ∙ K ∙ K
   norm-III = refl
+
+  -- The problem with the above `norm` is that it's difficult to extract
+  -- the recursive normalizer by removing the proof-related stuff.
+
+
+--
+-- Determinism: x ⇓ u → x ⇓ v → u ≡ v
+--
+
+⟨∙⟩⇓-det : ∀ {α β} {u : Nf (α ⇒ β)} {v : Nf α} {w w′ : Nf β} →
+  u ⟨∙⟩ v ⇓ w → u ⟨∙⟩ v ⇓ w′ → w ≡ w′
+⟨∙⟩⇓-det K0⇓ K0⇓ = refl
+⟨∙⟩⇓-det K1⇓ K1⇓ = refl
+⟨∙⟩⇓-det S0⇓ S0⇓ = refl
+⟨∙⟩⇓-det S1⇓ S1⇓ = refl
+⟨∙⟩⇓-det (S2⇓ p q r) (S2⇓ p′ q′ r′)
+  rewrite ⟨∙⟩⇓-det p p′ | ⟨∙⟩⇓-det q q′ | ⟨∙⟩⇓-det r r′
+  = refl
+
+⇓-det : ∀ {α} {x : Tm α} {u u′ : Nf α} →
+  x ⇓ u → x ⇓ u′ → u ≡ u′
+⇓-det K⇓ K⇓ = refl
+⇓-det S⇓ S⇓ = refl
+⇓-det (∙⇓ p q r) (∙⇓ p′ q′ r′)
+  rewrite ⇓-det p p′ | ⇓-det q q′ | ⟨∙⟩⇓-det r r′
+  = refl
+
+--
+-- Soundness: the normal forms of two convertible terms are equal.
+--
+
+-- x ≈ y → x ⇓ u → y ⇓ v → u ≡ v
+
+⇓-sound : ∀ {α} {x y : Tm α} {u v : Nf α} →
+  x ≈ y → x ⇓ u → y ⇓ v → u ≡ v
+
+⇓-sound ≈refl x⇓u x⇓v =
+  ⇓-det x⇓u x⇓v
+⇓-sound (≈sym x≈y) x⇓u x⇓v =
+  sym $ ⇓-sound x≈y x⇓v x⇓u
+⇓-sound (≈trans {α} {x} {z} {y} x≈z z≈y) x⇓u y⇓v =
+  let w , z⇓w , r = all-sc z
+  in trans (⇓-sound x≈z x⇓u z⇓w) (⇓-sound z≈y z⇓w y⇓v)
+⇓-sound ≈K (∙⇓ (∙⇓ K⇓ x⇓′ K0⇓) y⇓ K1⇓) x⇓′′ =
+  ⇓-det x⇓′ x⇓′′
+⇓-sound ≈S
+  (∙⇓ (∙⇓ (∙⇓ S⇓ x⇓ S0⇓) y⇓ S1⇓) z⇓ (S2⇓ ⇓uw ⇓vw ⇓uwvw))
+  xzyz⇓ =
+  ⇓-det (∙⇓ (∙⇓ x⇓ z⇓ ⇓uw) (∙⇓ y⇓ z⇓ ⇓vw) ⇓uwvw) xzyz⇓
+⇓-sound (∙-cong x≈x′ y≈y′) (∙⇓ ⇓u ⇓v ⇓uv) (∙⇓ ⇓u′ ⇓v′ ⇓u′v′)
+  rewrite ⇓-sound x≈x′ ⇓u ⇓u′ | ⇓-sound y≈y′ ⇓v ⇓v′  =
+  ⟨∙⟩⇓-det ⇓uv ⇓u′v′
+
+-- x ≈ y → nf x ≡ nf y
+
+nf-sound : ∀ {α} {x y : Tm α} → x ≈ y → nf x ≡ nf y
+
+nf-sound {α} {x} {y} x≈y with all-sc x | all-sc y
+... | u , ⇓u , p | v , ⇓v , q =
+  ⇓-sound x≈y ⇓u ⇓v
+
+
+--
+-- Completeness: terms are convertible to their normal forms.
+-- 
+
+⟨∙⟩⇓-complete : ∀ {α β} {u : Nf (α ⇒ β)} {v : Nf α} {w : Nf β} →
+  u ⟨∙⟩ v ⇓ w → ⌜ u ⌝ ∙ ⌜ v ⌝ ≈ ⌜ w ⌝
+⟨∙⟩⇓-complete K0⇓ = ≈refl
+⟨∙⟩⇓-complete K1⇓ = ≈K
+⟨∙⟩⇓-complete S0⇓ = ≈refl
+⟨∙⟩⇓-complete S1⇓ = ≈refl
+⟨∙⟩⇓-complete (S2⇓ {u = u} {v} {w} {w′} {w′′} {w′′′} p q r) = begin
+  S ∙ ⌜ u ⌝ ∙ ⌜ v ⌝ ∙ ⌜ w ⌝
+    ≈⟨ ≈S ⟩
+  (⌜ u ⌝ ∙ ⌜ w ⌝) ∙ (⌜ v ⌝ ∙ ⌜ w ⌝)
+    ≈⟨ ∙-cong (⟨∙⟩⇓-complete p) (⟨∙⟩⇓-complete q) ⟩
+  ⌜ w′ ⌝ ∙ ⌜ w′′ ⌝
+    ≈⟨ ⟨∙⟩⇓-complete r ⟩
+  ⌜ w′′′ ⌝
+  ∎
+  where open ≈-Reasoning
+
+-- x ⇓ u → x ≈ ⌜ u ⌝
+
+⇓-complete : ∀ {α} {x : Tm α} {u : Nf α} →
+  x ⇓ u → x ≈ ⌜ u ⌝
+⇓-complete K⇓ = ≈refl
+⇓-complete S⇓ = ≈refl
+⇓-complete (∙⇓ {x = x} {y} {u} {v} {uv} x⇓u y⇓v ⇓uv) = begin
+  x ∙ y
+    ≈⟨ ∙-cong (⇓-complete x⇓u) (⇓-complete y⇓v) ⟩
+  ⌜ u ⌝ ∙ ⌜ v ⌝
+    ≈⟨ ⟨∙⟩⇓-complete ⇓uv ⟩
+  ⌜ uv ⌝
+  ∎
+  where open ≈-Reasoning
+
+-- x ≈ ⌜ nf x ⌝
+
+nf-complete : ∀ {α} (x : Tm α) →
+  x ≈ ⌜ nf x ⌝
+nf-complete x with all-sc x
+... | u , ⇓u , p =
+  ⇓-complete ⇓u
+
 
 --
 -- Now, as suggested by Bove and Capretta, we add to the normalization function
@@ -393,49 +434,63 @@ module TerminatingNorm where
 -- by Bove and Capretta makes sense (for Agda)?
 --
 -- Probably, the answer is that, informally, it is easy to see that
--- the (following) function `eval` is an "instrumented" version of
--- the "naive" function `⟦_⟧`. And `eval` uses the propositional argument
+-- the (following) function `⟦_⟧&_` is an "instrumented" version of
+-- the "naive" function `⟦_⟧`. And `⟦_⟧&_` uses the propositional argument
 -- neither for making decisions nor for producing the normal form.
 -- Hence, the propositional argument can be removed to produce
--- the original function `⟦_⟧` (and `⟦_⟧` is total).
+-- the original function `⟦_⟧` (and, hence `⟦_⟧` is total).
 --
 
--- apply
+-- Structurally recursive evaluator.
+
+-- _⟨∙⟩_&_
 
 mutual
 
-  apply : ∀ {α β} (u : Nf (α ⇒ β)) (v : Nf α)
+  _⟨∙⟩_&_ : ∀ {α β} (u : Nf (α ⇒ β)) (v : Nf α)
     {w} (uv⇓ : u ⟨∙⟩ v ⇓ w) → ∃ λ w′ → w′ ≡ w
-  apply K0 u K0⇓ = K1 u , refl
-  apply (K1 u) v K1⇓ = u , refl
-  apply S0 u S0⇓ = S1 u , refl
-  apply (S1 u) v S1⇓ = S2 u v , refl
-  apply (S2 u v) w (S2⇓ uw⇓ vw⇓ uwvw⇓) =
-    apply≡ (apply u w uw⇓) (apply v w vw⇓) uwvw⇓
+  --K0 ⟨∙⟩ u & K0⇓ = K1 u , refl
+  K0 ⟨∙⟩ u & r with r
+  ... | K0⇓ = K1 u , refl
+  K1 u ⟨∙⟩ v & K1⇓ = u , refl
+  S0 ⟨∙⟩ u & S0⇓ = S1 u , refl
+  S1 u ⟨∙⟩ v & S1⇓ = S2 u v , refl
+  S2 u v ⟨∙⟩ w & S2⇓ uw⇓ vw⇓ uwvw⇓ =
+    apply& (u ⟨∙⟩ w & uw⇓) (v ⟨∙⟩ w & vw⇓) uwvw⇓
 
-  apply≡ : ∀ {α β} {u : Nf (α ⇒ β)} {v : Nf α}
-    (p : ∃ λ u′ → u′ ≡ u) (q : ∃ λ v′ → v′ ≡ v) {w} →
-    u ⟨∙⟩ v ⇓ w → ∃ (λ w′ → w′ ≡ w)
-  apply≡ (u′ , u′≡u) (v′ , v′≡v) ⇓w
-    rewrite sym $ u′≡u | sym $ v′≡v
-    = apply u′ v′ ⇓w
+  apply& : ∀ {α β} {u : Nf (α ⇒ β)} {v : Nf α}
+    (p : ∃ λ u′ → u′ ≡ u) (q : ∃ λ v′ → v′ ≡ v) {w} (⇓w : u ⟨∙⟩ v ⇓ w) →
+      ∃ (λ w′ → w′ ≡ w)
+  apply& (u′ , refl) (v′ , refl) ⇓w =
+    u′ ⟨∙⟩ v′ & ⇓w
 
--- eval
+⟦_⟧&_ : ∀ {α} (x : Tm α) {u} (x⇓ : x ⇓ u) → ∃ λ u′ → u′ ≡ u
 
-eval : ∀ {α} (x : Tm α) {u} (x⇓ : x ⇓ u) → ∃ λ u′ → u′ ≡ u
-
-eval K K⇓ = K0 , refl
-eval S S⇓ = S0 , refl
-eval (x ∙ y) (∙⇓ x⇓ y⇓ ⇓w) =
-  apply≡ (eval x x⇓) (eval y y⇓) ⇓w
+⟦ K ⟧& K⇓ = K0 , refl
+⟦ S ⟧& S⇓ = S0 , refl
+⟦ x ∙ y ⟧& ∙⇓ x⇓ y⇓ ⇓w =
+  apply& (⟦ x ⟧& x⇓) (⟦ y ⟧& y⇓) ⇓w
 
 
 module BoveCaprettaNorm where
 
-  norm : ∀ {α} → Tm α → Tm α
+  norm : ∀ {α} (x : Tm α) → Tm α
   norm x =
     let u , x⇓u = all-⇓ x
-    in reify (proj₁ (eval x x⇓u))
+    in ⌜ proj₁ (⟦ x ⟧& x⇓u) ⌝
 
   norm-III : norm III ≡ S ∙ K ∙ K
   norm-III = refl
+
+
+nf-bk : ∀ {α} (x : Tm α) → Nf α
+nf-bk x with all-sc x
+... | u , ⇓u , p with ⟦ x ⟧& ⇓u
+... | u′ , u′≡u = u′
+
+nf≡nf-bk : ∀ {α} (x : Tm α) → nf x ≡ nf-bk x
+nf≡nf-bk x with all-sc x
+... | u , ⇓u , p with ⟦ x ⟧& ⇓u
+nf≡nf-bk K | u , ⇓u , p | u′ , u′≡u = sym u′≡u
+nf≡nf-bk S | u , ⇓u , p | u′ , u′≡u = sym u′≡u
+nf≡nf-bk (x ∙ y) | u , ⇓u , p | u′ , u′≡u = sym u′≡u
