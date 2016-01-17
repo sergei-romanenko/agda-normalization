@@ -91,7 +91,7 @@ data _≈_  : {α : Ty} (x y : Tm α) → Set where
              K ∙ x ∙ y ≈ x
   ≈S     : ∀ {α β γ} {x : Tm (α ⇒ β ⇒ γ)} {y : Tm (α ⇒ β)} {z : Tm α} →
              S ∙ x ∙ y ∙ z ≈ (x ∙ z) ∙ (y ∙ z)
-  ∙-cong : ∀ {α β} {x x′ : Tm (α ⇒ β)} {y y′ : Tm α} →
+  ≈cong∙ : ∀ {α β} {x x′ : Tm (α ⇒ β)} {y y′ : Tm α} →
              x ≈ x′ → y ≈ y′ → x ∙ y ≈ x′ ∙ y′
 
 ≈setoid : {α : Ty} → Setoid _ _
@@ -367,7 +367,7 @@ module TerminatingNorm where
   (∙⇓ (∙⇓ (∙⇓ S⇓ x⇓ S0⇓) y⇓ S1⇓) z⇓ (S2⇓ ⇓uw ⇓vw ⇓uwvw))
   xzyz⇓ =
   ⇓-det (∙⇓ (∙⇓ x⇓ z⇓ ⇓uw) (∙⇓ y⇓ z⇓ ⇓vw) ⇓uwvw) xzyz⇓
-⇓-sound (∙-cong x≈x′ y≈y′) (∙⇓ ⇓u ⇓v ⇓uv) (∙⇓ ⇓u′ ⇓v′ ⇓u′v′)
+⇓-sound (≈cong∙ x≈x′ y≈y′) (∙⇓ ⇓u ⇓v ⇓uv) (∙⇓ ⇓u′ ⇓v′ ⇓u′v′)
   rewrite ⇓-sound x≈x′ ⇓u ⇓u′ | ⇓-sound y≈y′ ⇓v ⇓v′  =
   ⟨∙⟩⇓-det ⇓uv ⇓u′v′
 
@@ -394,7 +394,7 @@ nf-sound {α} {x} {y} x≈y with all-sc x | all-sc y
   S ∙ ⌜ u ⌝ ∙ ⌜ v ⌝ ∙ ⌜ w ⌝
     ≈⟨ ≈S ⟩
   (⌜ u ⌝ ∙ ⌜ w ⌝) ∙ (⌜ v ⌝ ∙ ⌜ w ⌝)
-    ≈⟨ ∙-cong (⟨∙⟩⇓-complete p) (⟨∙⟩⇓-complete q) ⟩
+    ≈⟨ ≈cong∙ (⟨∙⟩⇓-complete p) (⟨∙⟩⇓-complete q) ⟩
   ⌜ w′ ⌝ ∙ ⌜ w′′ ⌝
     ≈⟨ ⟨∙⟩⇓-complete r ⟩
   ⌜ w′′′ ⌝
@@ -409,7 +409,7 @@ nf-sound {α} {x} {y} x≈y with all-sc x | all-sc y
 ⇓-complete S⇓ = ≈refl
 ⇓-complete (∙⇓ {x = x} {y} {u} {v} {uv} x⇓u y⇓v ⇓uv) = begin
   x ∙ y
-    ≈⟨ ∙-cong (⇓-complete x⇓u) (⇓-complete y⇓v) ⟩
+    ≈⟨ ≈cong∙ (⇓-complete x⇓u) (⇓-complete y⇓v) ⟩
   ⌜ u ⌝ ∙ ⌜ v ⌝
     ≈⟨ ⟨∙⟩⇓-complete ⇓uv ⟩
   ⌜ uv ⌝
@@ -450,8 +450,7 @@ mutual
   _⟨∙⟩_&_ : ∀ {α β} (u : Nf (α ⇒ β)) (v : Nf α)
     {w} (uv⇓ : u ⟨∙⟩ v ⇓ w) → ∃ λ w′ → w′ ≡ w
   --K0 ⟨∙⟩ u & K0⇓ = K1 u , refl
-  K0 ⟨∙⟩ u & r with r
-  ... | K0⇓ = K1 u , refl
+  K0 ⟨∙⟩ u & K0⇓ = K1 u , refl
   K1 u ⟨∙⟩ v & K1⇓ = u , refl
   S0 ⟨∙⟩ u & S0⇓ = S1 u , refl
   S1 u ⟨∙⟩ v & S1⇓ = S2 u v , refl
@@ -488,7 +487,13 @@ nf-bk x with all-sc x
 ... | u , ⇓u , p with ⟦ x ⟧& ⇓u
 ... | u′ , u′≡u = u′
 
+--
+-- nf x ≡ nf-bk
+-- Hence, nf-bk is sound and complete.
+--
+
 nf≡nf-bk : ∀ {α} (x : Tm α) → nf x ≡ nf-bk x
+
 nf≡nf-bk x with all-sc x
 ... | u , ⇓u , p with ⟦ x ⟧& ⇓u
 nf≡nf-bk K | u , ⇓u , p | u′ , u′≡u = sym u′≡u
