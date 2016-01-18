@@ -273,99 +273,99 @@ data _⇓_ : {α : Ty} (x : Tm α) (u : Nf α) → Set where
 
 SCN : ∀ {α} (u : Nf α) → Set
 SCN {N} u = ⊤
-SCN {α ⇒ β} u = ∀ v → SCN v → ∃ λ w → u ⟨∙⟩ v ⇓ w × SCN w
+SCN {α ⇒ β} u = ∀ v → SCN v → ∃ λ w → SCN w × u ⟨∙⟩ v ⇓ w
 
 --
 -- All normal forms are strongly computable!
 --    ∀ {α} (u : Nf α) → SCN u
 --
 
-all-scn-K2 : ∀ {α β} u (p : SCN u) v (q : SCN v) →
-  ∃ λ w → K1 {α} {β} u ⟨∙⟩ v ⇓ w × SCN w
-all-scn-K2 u p v q =
-  u , K1⇓ , p
+all-scn-K1 : ∀ {α β} u (p : SCN u) v (q : SCN v) →
+  ∃ λ w → SCN w × K1 {α} {β} u ⟨∙⟩ v ⇓ w
+all-scn-K1 u p v q =
+  u , p , K1⇓
 
-all-scn-K1 : ∀ {α β} u (p : SCN u) →
-  ∃ λ w → K0 {α} {β} ⟨∙⟩ u ⇓ w × SCN w
-all-scn-K1 u p =
-  K1 u , K0⇓ , all-scn-K2 u p
+all-scn-K0 : ∀ {α β} u (p : SCN u) →
+  ∃ λ w → SCN w × K0 {α} {β} ⟨∙⟩ u ⇓ w
+all-scn-K0 u p =
+  K1 u , all-scn-K1 u p , K0⇓
 
-all-scn-S3 : ∀ {α β γ} u (p : SCN u) v (q : SCN v) w (r : SCN w) →
-  ∃ λ w′ → S2 {α} {β} {γ} u v ⟨∙⟩ w ⇓ w′ × SCN w′
-all-scn-S3 u p v q w r =
-  let w₁ , ⇓w₁ , r₁ = p w r
-      w₂ , ⇓w₂ , r₂ = q w r
-      w₃ , ⇓w₃ , r₃ = r₁ w₂ r₂
-  in w₃ , S2⇓ ⇓w₁ ⇓w₂ ⇓w₃ , r₃
+all-scn-S2 : ∀ {α β γ} u (p : SCN u) v (q : SCN v) w (r : SCN w) →
+  ∃ λ w′ → SCN w′ × S2 {α} {β} {γ} u v ⟨∙⟩ w ⇓ w′
+all-scn-S2 u p v q w r =
+  let w₁ , r₁ , ⇓w₁ = p w r
+      w₂ , r₂ , ⇓w₂ = q w r
+      w₃ , r₃ , ⇓w₃ = r₁ w₂ r₂
+  in w₃ , r₃ , S2⇓ ⇓w₁ ⇓w₂ ⇓w₃
 
-all-scn-S2 : ∀ {α β γ} u (p : SCN u) v (q : SCN v) →
-  ∃ λ w → S1 {α} {β} {γ} u ⟨∙⟩ v ⇓ w × SCN w
-all-scn-S2 u p v q =
-  S2 u v , S1⇓ , all-scn-S3 u p v q
+all-scn-S1 : ∀ {α β γ} u (p : SCN u) v (q : SCN v) →
+  ∃ λ w → SCN w × S1 {α} {β} {γ} u ⟨∙⟩ v ⇓ w
+all-scn-S1 u p v q =
+  S2 u v , all-scn-S2 u p v q , S1⇓
 
-all-scn-S1 : ∀ {α β γ} u (p : SCN u) →
-  ∃ λ w → S0 {α} {β} {γ} ⟨∙⟩ u ⇓ w × SCN w
-all-scn-S1 u p =
-  S1 u , S0⇓ , all-scn-S2 u p
+all-scn-S0 : ∀ {α β γ} u (p : SCN u) →
+  ∃ λ w → SCN w × S0 {α} {β} {γ} ⟨∙⟩ u ⇓ w
+all-scn-S0 u p =
+  S1 u , all-scn-S1 u p , S0⇓
 
-all-scn-SUC1 : ∀ u (p : SCN u) →
-  ∃ (λ w → SUC0 ⟨∙⟩ u ⇓ w × SCN w)
-all-scn-SUC1 u tt =
-  SUC1 u , SUC0⇓ , tt
+all-scn-SUC0 : ∀ u (p : SCN u) →
+  ∃ λ w → SCN w × SUC0 ⟨∙⟩ u ⇓ w
+all-scn-SUC0 u tt =
+  SUC1 u , tt , SUC0⇓
 
-all-scn-REC3 : ∀ {α} u (p : SCN u) v (q : SCN v) w (r : SCN w) →
-  ∃ λ w′ → REC2 {α} u v ⟨∙⟩ w ⇓ w′ × SCN w′
-all-scn-REC3 u p v q ZERO0 tt =
-  u , REC2Z⇓ , p
-all-scn-REC3 u p v q (SUC1 w) tt =
-  let w₁ , ⇓w₁ , r₁ = q w tt
-      w₂ , ⇓w₂ , r₂ = all-scn-REC3 u p v q w tt
-      w₃ , ⇓w₃ , r₃ = r₁ w₂ r₂
-  in w₃ , REC2S⇓ ⇓w₁ ⇓w₂ ⇓w₃ , r₃
+all-scn-REC2 : ∀ {α} u (p : SCN u) v (q : SCN v) w (r : SCN w) →
+  ∃ λ w′ → SCN w′ × REC2 {α} u v ⟨∙⟩ w ⇓ w′
+all-scn-REC2 u p v q ZERO0 tt =
+  u , p , REC2Z⇓
+all-scn-REC2 u p v q (SUC1 w) tt =
+  let w₁ , r₁ , ⇓w₁ = q w tt
+      w₂ , r₂ , ⇓w₂ = all-scn-REC2 u p v q w tt
+      w₃ , r₃ , ⇓w₃ = r₁ w₂ r₂
+  in w₃ , r₃ , REC2S⇓ ⇓w₁ ⇓w₂ ⇓w₃
 
-all-scn-REC2 : ∀ {α} u (p : SCN u) v (q : SCN v) →
-  ∃ λ w → REC1 {α} u ⟨∙⟩ v ⇓ w × SCN w
-all-scn-REC2 u p v q =
-  REC2 u v , REC1⇓ , all-scn-REC3 u p v q
+all-scn-REC1 : ∀ {α} u (p : SCN u) v (q : SCN v) →
+  ∃ λ w → SCN w × REC1 {α} u ⟨∙⟩ v ⇓ w
+all-scn-REC1 u p v q =
+  REC2 u v , all-scn-REC2 u p v q , REC1⇓
 
-all-scn-REC1 : ∀ {α} u (p : SCN u) →
-  ∃ λ w → REC0 {α} ⟨∙⟩ u ⇓ w × SCN w
-all-scn-REC1 u p =
-  REC1 u , REC0⇓ , all-scn-REC2 u p
+all-scn-REC0 : ∀ {α} u (p : SCN u) →
+  ∃ λ w → SCN w × REC0 {α} ⟨∙⟩ u ⇓ w
+all-scn-REC0 u p =
+  REC1 u , all-scn-REC1 u p , REC0⇓
 
 -- ∀ {α} (u : Nf α) → SCN u
 
 all-scn : ∀ {α} (u : Nf α) → SCN u
 
 all-scn K0 =
-  all-scn-K1
+  all-scn-K0
 all-scn (K1 u) =
-  all-scn-K2 u (all-scn u)
+  all-scn-K1 u (all-scn u)
 all-scn S0 =
-  all-scn-S1
+  all-scn-S0
 all-scn (S1 u) =
-  all-scn-S2 u (all-scn u)
+  all-scn-S1 u (all-scn u)
 all-scn (S2 u v) =
-  all-scn-S3 u (all-scn u) v (all-scn v)
+  all-scn-S2 u (all-scn u) v (all-scn v)
 all-scn ZERO0 =
   tt
 all-scn SUC0 =
-  all-scn-SUC1
+  all-scn-SUC0
 all-scn (SUC1 u) =
   tt
 all-scn REC0 =
-  all-scn-REC1
+  all-scn-REC0
 all-scn (REC1 u) =
-  all-scn-REC2 u (all-scn u)
+  all-scn-REC1 u (all-scn u)
 all-scn (REC2 u v) =
-  all-scn-REC3 u (all-scn u) v (all-scn v)
+  all-scn-REC2 u (all-scn u) v (all-scn v)
 
 --
 -- "Strong computability" on terms.
 --
 
-SC : ∀ {α} (t : Tm α) → Set
-SC t = ∃ λ u → t ⇓ u × SCN u
+SC : ∀ {α} (x : Tm α) → Set
+SC x = ∃ λ u → SCN u × x ⇓ u
 
 --
 -- All terms are strongly computable!
@@ -375,20 +375,20 @@ SC t = ∃ λ u → t ⇓ u × SCN u
 all-sc : ∀ {α} (x : Tm α) → SC x
 
 all-sc K =
-  K0 , K⇓ , all-scn-K1
+  K0 , all-scn-K0 , K⇓
 all-sc S =
-  S0 , S⇓ , all-scn-S1
+  S0 , all-scn-S0 , S⇓
 all-sc (x ∙ y) =
-  let u , ⇓u , p = all-sc x
-      v , ⇓v , q = all-sc y
-      w , ⇓w , r = p v q
-  in w , ∙⇓ ⇓u ⇓v ⇓w , r
+  let u , p , ⇓u = all-sc x
+      v , q , ⇓v = all-sc y
+      w , r , ⇓w = p v q
+  in w , r , ∙⇓ ⇓u ⇓v ⇓w
 all-sc ZERO =
-  ZERO0 , ZERO⇓ , tt
+  ZERO0 , tt , ZERO⇓
 all-sc SUC =
-  SUC0 , SUC⇓ , all-scn-SUC1
+  SUC0 , all-scn-SUC0 , SUC⇓
 all-sc REC =
-  REC0 , REC⇓ , all-scn-REC1
+  REC0 , all-scn-REC0 , REC⇓
 
 --
 -- All terms are normalizable.
@@ -397,7 +397,7 @@ all-sc REC =
 
 all-⇓ : ∀ {α} (x : Tm α) → ∃ λ u → x ⇓ u
 all-⇓ x =
-  let u , ⇓u , p = all-sc x
+  let u , p , ⇓u = all-sc x
   in u , ⇓u
 
 --
@@ -513,7 +513,7 @@ module TerminatingNorm where
 nf-complete : ∀ {α} (x : Tm α) →
   x ≈ ⌜ nf x ⌝
 nf-complete x with all-sc x
-... | u , ⇓u , p =
+... | u , p , ⇓u =
   ⇓-complete ⇓u
 
 
@@ -530,7 +530,7 @@ nf-complete x with all-sc x
 ⇓-sound (≈sym x≈y) x⇓u x⇓v =
   sym $ ⇓-sound x≈y x⇓v x⇓u
 ⇓-sound (≈trans {α} {x} {z} {y} x≈z z≈y) x⇓u y⇓v =
-  let w , z⇓w , r = all-sc z
+  let w , r , z⇓w = all-sc z
   in trans (⇓-sound x≈z x⇓u z⇓w) (⇓-sound z≈y z⇓w y⇓v)
 ⇓-sound ≈K (∙⇓ (∙⇓ K⇓ x⇓′ K0⇓) y⇓ K1⇓) x⇓′′ =
   ⇓-det x⇓′ x⇓′′
@@ -625,13 +625,13 @@ module BoveCaprettaNorm where
 nf-bk : ∀ {α} (x : Tm α) → Nf α
 
 nf-bk x with all-sc x
-... | u , ⇓u , p with eval x ⇓u
+... | u , p , ⇓u with eval x ⇓u
 ... | u′ , u′≡u = u′
 
 nf≡nf-bk : ∀ {α} (x : Tm α) → nf x ≡ nf-bk x
 
 nf≡nf-bk x with all-sc x
-... | u , ⇓u , p with eval x ⇓u
+... | u , p , ⇓u with eval x ⇓u
 nf≡nf-bk K | u , ⇓u , p | u′ , u′≡u = sym u′≡u
 nf≡nf-bk S | u , ⇓u , p | u′ , u′≡u = sym u′≡u
 nf≡nf-bk (x ∙ y) | u , ⇓u , p | u′ , u′≡u = sym u′≡u

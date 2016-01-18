@@ -27,6 +27,7 @@
 module STCC-Tait-SK where
 
 open import Data.Empty
+open import Data.Unit using (⊤; tt) public
 open import Data.Product
 
 open import Function
@@ -213,63 +214,63 @@ data _⇓_ : {α : Ty} (x : Tm α) (u : Nf α) → Set where
 --
 
 SCN : ∀ {α} (u : Nf α) → Set
-SCN {⋆} ()
-SCN {α ⇒ β} u = ∀ v → SCN v → ∃ λ w → u ⟨∙⟩ v ⇓ w × SCN w
+SCN {⋆} u = ⊤
+SCN {α ⇒ β} u = ∀ v → SCN v → ∃ λ w → SCN w × u ⟨∙⟩ v ⇓ w
 
 --
 -- All normal forms are strongly computable!
 --    ∀ {α} (u : Nf α) → SCN u
 --
 
-all-scn-K2 : ∀ {α β} u (p : SCN u) v (q : SCN v) →
-  ∃ λ w → K1 {α} {β} u ⟨∙⟩ v ⇓ w × SCN w
-all-scn-K2 u p v q =
-  u , K1⇓ , p
+all-scn-K1 : ∀ {α β} u (p : SCN u) v (q : SCN v) →
+  ∃ λ w → SCN w × K1 {α} {β} u ⟨∙⟩ v ⇓ w
+all-scn-K1 u p v q =
+  u , p , K1⇓
 
-all-scn-K1 : ∀ {α β} u (p : SCN u) →
-  ∃ λ w → K0 {α} {β} ⟨∙⟩ u ⇓ w × SCN w
-all-scn-K1 u p =
-  K1 u , K0⇓ , all-scn-K2 u p
+all-scn-K0 : ∀ {α β} u (p : SCN u) →
+  ∃ λ w → SCN w × K0 {α} {β} ⟨∙⟩ u ⇓ w
+all-scn-K0 u p =
+  K1 u , all-scn-K1 u p , K0⇓
 
-all-scn-S3 : ∀ {α β γ} u (p : SCN u) v (q : SCN v) w (r : SCN w) →
-  ∃ λ w′ → S2 {α} {β} {γ} u v ⟨∙⟩ w ⇓ w′ × SCN w′
-all-scn-S3 u p v q w r =
-  let w₁ , ⇓w₁ , r₁ = p w r
-      w₂ , ⇓w₂ , r₂ = q w r
-      w₃ , ⇓w₃ , r₃ = r₁ w₂ r₂
-  in w₃ , S2⇓ ⇓w₁ ⇓w₂ ⇓w₃ , r₃
+all-scn-S2 : ∀ {α β γ} u (p : SCN u) v (q : SCN v) w (r : SCN w) →
+  ∃ λ w′ → SCN w′ × S2 {α} {β} {γ} u v ⟨∙⟩ w ⇓ w′
+all-scn-S2 u p v q w r =
+  let w₁ , r₁ , ⇓w₁ = p w r
+      w₂ , r₂ , ⇓w₂ = q w r
+      w₃ , r₃ , ⇓w₃ = r₁ w₂ r₂
+  in w₃ , r₃ , S2⇓ ⇓w₁ ⇓w₂ ⇓w₃
 
-all-scn-S2 : ∀ {α β γ} u (p : SCN u) v (q : SCN v) →
-  ∃ λ w → S1 {α} {β} {γ} u ⟨∙⟩ v ⇓ w × SCN w
-all-scn-S2 u p v q =
-  S2 u v , S1⇓ , all-scn-S3 u p v q
+all-scn-S1 : ∀ {α β γ} u (p : SCN u) v (q : SCN v) →
+  ∃ λ w → SCN w × S1 {α} {β} {γ} u ⟨∙⟩ v ⇓ w
+all-scn-S1 u p v q =
+  S2 u v , all-scn-S2 u p v q , S1⇓
 
-all-scn-S1 : ∀ {α β γ} u (p : SCN u) →
-  ∃ λ w → S0 {α} {β} {γ} ⟨∙⟩ u ⇓ w × SCN w
-all-scn-S1 u p =
-  S1 u , S0⇓ , all-scn-S2 u p
+all-scn-S0 : ∀ {α β γ} u (p : SCN u) →
+  ∃ λ w → SCN w × S0 {α} {β} {γ} ⟨∙⟩ u ⇓ w
+all-scn-S0 u p =
+  S1 u , all-scn-S1 u p , S0⇓
 
 -- ∀ {α} (u : Nf α) → SCN u
 
 all-scn : ∀ {α} (u : Nf α) → SCN u
 
 all-scn K0 =
-  all-scn-K1
+  all-scn-K0
 all-scn (K1 u) =
-  all-scn-K2 u (all-scn u)
+  all-scn-K1 u (all-scn u)
 all-scn S0 =
-  all-scn-S1
+  all-scn-S0
 all-scn (S1 u) =
-  all-scn-S2 u (all-scn u)
+  all-scn-S1 u (all-scn u)
 all-scn (S2 u v) =
-  all-scn-S3 u (all-scn u) v (all-scn v)
+  all-scn-S2 u (all-scn u) v (all-scn v)
 
 --
 -- "Strong computability" on terms.
 --
 
-SC : ∀ {α} (t : Tm α) → Set
-SC t = ∃ λ u → t ⇓ u × SCN u
+SC : ∀ {α} (x : Tm α) → Set
+SC x = ∃ λ u → SCN u × x ⇓ u
 
 --
 -- All terms are strongly computable!
@@ -279,14 +280,14 @@ SC t = ∃ λ u → t ⇓ u × SCN u
 all-sc : ∀ {α} (x : Tm α) → SC x
 
 all-sc K =
-  K0 , K⇓ , all-scn-K1
+  K0 , all-scn-K0 , K⇓
 all-sc S =
-  S0 , S⇓ , all-scn-S1
+  S0 , all-scn-S0 , S⇓
 all-sc (x ∙ y) =
-  let u , ⇓u , p = all-sc x
-      v , ⇓v , q = all-sc y
-      w , ⇓w , r = p v q
-  in w , ∙⇓ ⇓u ⇓v ⇓w , r
+  let u , p , ⇓u = all-sc x
+      v , q , ⇓v = all-sc y
+      w , r , ⇓w = p v q
+  in w , r , ∙⇓ ⇓u ⇓v ⇓w
 
 --
 -- All terms are normalizable.
@@ -295,7 +296,7 @@ all-sc (x ∙ y) =
 
 all-⇓ : ∀ {α} (x : Tm α) → ∃ λ u → x ⇓ u
 all-⇓ x =
-  let u , ⇓u , p = all-sc x
+  let u , p , ⇓u = all-sc x
   in u , ⇓u
 
 
@@ -305,7 +306,7 @@ all-⇓ x =
 
 nf : ∀ {α} (x : Tm α) → Nf α
 nf x with all-sc x
-... | u , ⇓u , p = u
+... | u , p , ⇓u = u
 
 
 module TerminatingNorm where
@@ -359,7 +360,7 @@ module TerminatingNorm where
 ⇓-sound (≈sym x≈y) x⇓u x⇓v =
   sym $ ⇓-sound x≈y x⇓v x⇓u
 ⇓-sound (≈trans {α} {x} {z} {y} x≈z z≈y) x⇓u y⇓v =
-  let w , z⇓w , r = all-sc z
+  let w , r , z⇓w = all-sc z
   in trans (⇓-sound x≈z x⇓u z⇓w) (⇓-sound z≈y z⇓w y⇓v)
 ⇓-sound ≈K (∙⇓ (∙⇓ K⇓ x⇓′ K0⇓) y⇓ K1⇓) x⇓′′ =
   ⇓-det x⇓′ x⇓′′
@@ -376,7 +377,7 @@ module TerminatingNorm where
 nf-sound : ∀ {α} {x y : Tm α} → x ≈ y → nf x ≡ nf y
 
 nf-sound {α} {x} {y} x≈y with all-sc x | all-sc y
-... | u , ⇓u , p | v , ⇓v , q =
+... | u , p , ⇓u | v , q , ⇓v =
   ⇓-sound x≈y ⇓u ⇓v
 
 
@@ -421,7 +422,7 @@ nf-sound {α} {x} {y} x≈y with all-sc x | all-sc y
 nf-complete : ∀ {α} (x : Tm α) →
   x ≈ ⌜ nf x ⌝
 nf-complete x with all-sc x
-... | u , ⇓u , p =
+... | u , p , ⇓u =
   ⇓-complete ⇓u
 
 
@@ -484,7 +485,7 @@ module BoveCaprettaNorm where
 
 nf-bk : ∀ {α} (x : Tm α) → Nf α
 nf-bk x with all-sc x
-... | u , ⇓u , p with ⟦ x ⟧& ⇓u
+... | u , p , ⇓u with ⟦ x ⟧& ⇓u
 ... | u′ , u′≡u = u′
 
 --
@@ -495,7 +496,7 @@ nf-bk x with all-sc x
 nf≡nf-bk : ∀ {α} (x : Tm α) → nf x ≡ nf-bk x
 
 nf≡nf-bk x with all-sc x
-... | u , ⇓u , p with ⟦ x ⟧& ⇓u
+... | u , p , ⇓u with ⟦ x ⟧& ⇓u
 nf≡nf-bk K | u , ⇓u , p | u′ , u′≡u = sym u′≡u
 nf≡nf-bk S | u , ⇓u , p | u′ , u′≡u = sym u′≡u
 nf≡nf-bk (x ∙ y) | u , ⇓u , p | u′ , u′≡u = sym u′≡u
