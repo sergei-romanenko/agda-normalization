@@ -48,8 +48,9 @@ import Relation.Binary.EqReasoning as EqReasoning
 infixr 5 _⇒_
 
 data Ty : Set where
-  N   :  Ty
+  ⋆   : Ty
   _⇒_ : (α β : Ty) → Ty
+  N   :  Ty
 
 --
 -- Typed terms.
@@ -104,21 +105,21 @@ infix 4 _≈_
 
 data _≈_  : {α : Ty} (x y : Tm α) → Set where
   ≈refl  : ∀ {α} {x : Tm α} →
-             x ≈ x
+    x ≈ x
   ≈sym   : ∀ {α} {x y : Tm α} →
-             x ≈ y → y ≈ x
+    x ≈ y → y ≈ x
   ≈trans : ∀ {α} {x y z : Tm α} →
-             x ≈ y → y ≈ z → x ≈ z
+    x ≈ y → y ≈ z → x ≈ z
   ≈K     : ∀ {α β} {x : Tm α} {y : Tm β} →
-             K ∙ x ∙ y ≈ x
+    K ∙ x ∙ y ≈ x
   ≈S     : ∀ {α β γ} {x : Tm (α ⇒ β ⇒ γ)} {y : Tm (α ⇒ β)} {z : Tm α} →
-             S ∙ x ∙ y ∙ z ≈ (x ∙ z) ∙ (y ∙ z)
+    S ∙ x ∙ y ∙ z ≈ (x ∙ z) ∙ (y ∙ z)
   ≈cong∙ : ∀ {α β} {x x′ : Tm (α ⇒ β)} {y y′ : Tm α} →
-             x ≈ x′ → y ≈ y′ → x ∙ y ≈ x′ ∙ y′
+    x ≈ x′ → y ≈ y′ → x ∙ y ≈ x′ ∙ y′
   ≈RZ    : ∀ {α} {x : Tm α} {y : Tm (N ⇒ α ⇒ α)} →
-             REC ∙ x ∙ y ∙ ZERO ≈ x 
+    REC ∙ x ∙ y ∙ ZERO ≈ x 
   ≈RS    : ∀ {α} {x : Tm α} {y : Tm (N ⇒ α ⇒ α)} {z : Tm N} →
-             REC ∙ x ∙ y ∙ (SUC ∙ z) ≈ y ∙ z ∙ (REC ∙ x ∙ y ∙ z)
+    REC ∙ x ∙ y ∙ (SUC ∙ z) ≈ y ∙ z ∙ (REC ∙ x ∙ y ∙ z)
 
 ≈setoid : {α : Ty} → Setoid _ _
 
@@ -217,7 +218,14 @@ module NaiveNorm where
 
 -- Since Agda's termination checker is unable to prove that
 -- the "naive" normalazation function is total, let's rewrite
--- this function in form of a relation.
+-- this function in form of a relation x ⇓ u, where
+-- the intended meaning of x ⇓ u is ⟦ x ⟧ ≡ u .
+--
+-- _⇓_ will be shown to satisfy two requirements:
+--
+-- Determinism: x ⇓ u → x ⇓ v → u ≡ v
+-- Totality:    ∀ x → ∃ λ u → x ⇓ u
+
 
 infix 4 _⇓_ _⟨∙⟩_⇓_
 
@@ -250,7 +258,7 @@ data _⇓_ : {α : Ty} (x : Tm α) (u : Nf α) → Set where
     K {α} {β} ⇓ K0
   S⇓ : ∀ {α β γ : Ty} →
     S {α} {β} {γ} ⇓ S0
-  ∙⇓ : ∀ {α β : Ty} {x : Tm (α ⇒ β)} {y : Tm α} {u v w}
+  A⇓ : ∀ {α β : Ty} {x : Tm (α ⇒ β)} {y : Tm α} {u v w}
     (x⇓u : x ⇓ u) (y⇓v : y ⇓ v) (⇓w : u ⟨∙⟩ v ⇓ w)  →
     x ∙ y ⇓ w
   ZERO⇓ :
@@ -259,6 +267,98 @@ data _⇓_ : {α : Ty} (x : Tm α) (u : Nf α) → Set where
     SUC ⇓ SUC0
   REC⇓ : ∀ {α} →
     REC {α} ⇓ REC0
+
+
+--
+-- Now, as suggested by Bove and Capretta, we add to the normalization function
+-- an additional argument: a proof of the existence of the normal form.
+--
+-- Since, unlike Coq, Agda doesn't make a distinction
+-- between `Set` and `Prop`, it's not clear if the trick
+-- by Bove and Capretta makes sense (for Agda)?
+--
+-- Probably, the answer is that, informally, it is easy to see that
+-- the (following) function `eval` is an "instrumented" version of
+-- the "naive" function `⟦_⟧`. And `eval` uses the propositional argument
+-- neither for making decisions nor for producing the normal form.
+-- Hence, the propositional argument can be removed to produce
+-- the original function `⟦_⟧`.
+--
+
+--
+-- Structurally recursive normalizer.
+--
+
+_⟨∙⟩_&_ : ∀ {α β} (u : Nf (α ⇒ β)) (v : Nf α)
+  {w} (uv⇓ : u ⟨∙⟩ v ⇓ w) → ∃ λ w′ → w′ ≡ w
+
+K0 ⟨∙⟩ v & K0⇓ = K1 v , refl
+K1 u ⟨∙⟩ v & K1⇓ = u , refl
+S0 ⟨∙⟩ v & S0⇓ = S1 v , refl
+S1 u ⟨∙⟩ v & S1⇓ = S2 u v , refl
+S2 u v ⟨∙⟩ w & S2⇓ uw⇓ vw⇓ uwvw⇓ with u ⟨∙⟩ w & uw⇓ | v ⟨∙⟩ w & vw⇓
+... | u′ , refl | v′ , refl = u′ ⟨∙⟩ v′ & uwvw⇓
+SUC0 ⟨∙⟩ u & SUC0⇓ = SUC1 u , refl
+REC0 ⟨∙⟩ u & REC0⇓ = REC1 u , refl
+REC1 u ⟨∙⟩ v & REC1⇓ = REC2 u v , refl
+REC2 u v ⟨∙⟩ ZERO0 & REC2Z⇓ = u , refl
+REC2 u v ⟨∙⟩ SUC1 w & REC2S⇓ ⇓w′ ⇓w′′ ⇓w′′′
+  with v ⟨∙⟩ w & ⇓w′ | REC2 u v  ⟨∙⟩ w & ⇓w′′
+... | w′ , refl | w′′ , refl = w′ ⟨∙⟩ w′′ & ⇓w′′′
+
+eval : ∀ {α} (x : Tm α) {u} (x⇓ : x ⇓ u) → ∃ λ u′ → u′ ≡ u
+
+eval K K⇓ = K0 , refl
+eval S S⇓ = S0 , refl
+eval (x ∙ y) (A⇓ x⇓ y⇓ ⇓w) with eval x x⇓ | eval y y⇓
+... | u , refl | v , refl = u ⟨∙⟩ v & ⇓w
+eval ZERO ZERO⇓ = ZERO0 , refl
+eval SUC SUC⇓ = SUC0 , refl
+eval REC REC⇓ = REC0 , refl
+
+module BoveCaprettaNorm where
+
+  postulate
+    all-⇓ : ∀ {α} (x : Tm α) → ∃ λ u → x ⇓ u
+
+  norm : ∀ {α} → Tm α → Tm α
+  norm x with all-⇓ x
+  ... | u , x⇓u =
+    ⌜ proj₁ (eval x x⇓u) ⌝
+
+
+--
+-- Determinism: x ⇓ u → x ⇓ v → u ≡ v
+--
+
+⟨∙⟩⇓-det : ∀ {α β} {u : Nf (α ⇒ β)} {v : Nf α} {w w′ : Nf β} →
+  u ⟨∙⟩ v ⇓ w → u ⟨∙⟩ v ⇓ w′ → w ≡ w′
+⟨∙⟩⇓-det K0⇓ K0⇓ = refl
+⟨∙⟩⇓-det K1⇓ K1⇓ = refl
+⟨∙⟩⇓-det S0⇓ S0⇓ = refl
+⟨∙⟩⇓-det S1⇓ S1⇓ = refl
+⟨∙⟩⇓-det (S2⇓ p q r) (S2⇓ p′ q′ r′)
+  rewrite ⟨∙⟩⇓-det p p′ | ⟨∙⟩⇓-det q q′ | ⟨∙⟩⇓-det r r′
+  = refl
+⟨∙⟩⇓-det SUC0⇓ SUC0⇓ = refl
+⟨∙⟩⇓-det REC0⇓ REC0⇓ = refl
+⟨∙⟩⇓-det REC1⇓ REC1⇓ = refl
+⟨∙⟩⇓-det REC2Z⇓ REC2Z⇓ = refl
+⟨∙⟩⇓-det (REC2S⇓ p q r) (REC2S⇓ p′ q′ r′)
+  rewrite ⟨∙⟩⇓-det p p′ | ⟨∙⟩⇓-det q q′ | ⟨∙⟩⇓-det r r′
+  = refl
+
+⇓-det : ∀ {α} {x : Tm α} {u u′ : Nf α} →
+  x ⇓ u → x ⇓ u′ → u ≡ u′
+⇓-det K⇓ K⇓ = refl
+⇓-det S⇓ S⇓ = refl
+⇓-det (A⇓ p q r) (A⇓ p′ q′ r′)
+  rewrite ⇓-det p p′ | ⇓-det q q′ | ⟨∙⟩⇓-det r r′
+  = refl
+⇓-det ZERO⇓ ZERO⇓ = refl
+⇓-det SUC⇓ SUC⇓ = refl
+⇓-det REC⇓ REC⇓ = refl
+
 
 --
 -- Now we are going to prove that
@@ -272,64 +372,63 @@ data _⇓_ : {α : Ty} (x : Tm α) (u : Nf α) → Set where
 --
 
 SCN : ∀ {α} (u : Nf α) → Set
+SCN {⋆} u = ⊤
+SCN {α ⇒ β} u = ∀ v → SCN v →
+  ∃ λ w → SCN w × (u ⟨∙⟩ v ⇓ w)
 SCN {N} u = ⊤
-SCN {α ⇒ β} u = ∀ v → SCN v → ∃ λ w → SCN w × u ⟨∙⟩ v ⇓ w
 
 --
 -- All normal forms are strongly computable!
 --    ∀ {α} (u : Nf α) → SCN u
 --
 
-all-scn-K1 : ∀ {α β} u (p : SCN u) v (q : SCN v) →
-  ∃ λ w → SCN w × K1 {α} {β} u ⟨∙⟩ v ⇓ w
+all-scn-K1 : ∀ {α β} u (p : SCN u) → SCN (K1 {α} {β} u)
 all-scn-K1 u p v q =
   u , p , K1⇓
 
-all-scn-K0 : ∀ {α β} u (p : SCN u) →
-  ∃ λ w → SCN w × K0 {α} {β} ⟨∙⟩ u ⇓ w
+all-scn-K0 : ∀ {α β} → SCN (K0 {α} {β})
 all-scn-K0 u p =
   K1 u , all-scn-K1 u p , K0⇓
 
-all-scn-S2 : ∀ {α β γ} u (p : SCN u) v (q : SCN v) w (r : SCN w) →
-  ∃ λ w′ → SCN w′ × S2 {α} {β} {γ} u v ⟨∙⟩ w ⇓ w′
-all-scn-S2 u p v q w r =
-  let w₁ , r₁ , ⇓w₁ = p w r
-      w₂ , r₂ , ⇓w₂ = q w r
-      w₃ , r₃ , ⇓w₃ = r₁ w₂ r₂
-  in w₃ , r₃ , S2⇓ ⇓w₁ ⇓w₂ ⇓w₃
+all-scn-S2 : ∀ {α β γ} u (p : SCN u) v (q : SCN v) →
+  SCN (S2 {α} {β} {γ} u v)
+all-scn-S2 u p v q w r with p w r | q w r
+... | w₁ , r₁ , ⇓w₁ | w₂ , r₂ , ⇓w₂ with r₁ w₂ r₂
+... | w₃ , r₃ , ⇓w₃ =
+  w₃ , r₃ , S2⇓ ⇓w₁ ⇓w₂ ⇓w₃
 
-all-scn-S1 : ∀ {α β γ} u (p : SCN u) v (q : SCN v) →
-  ∃ λ w → SCN w × S1 {α} {β} {γ} u ⟨∙⟩ v ⇓ w
+all-scn-S1 : ∀ {α β γ} u (p : SCN u) → SCN (S1 {α} {β} {γ} u)
 all-scn-S1 u p v q =
   S2 u v , all-scn-S2 u p v q , S1⇓
 
-all-scn-S0 : ∀ {α β γ} u (p : SCN u) →
-  ∃ λ w → SCN w × S0 {α} {β} {γ} ⟨∙⟩ u ⇓ w
+all-scn-S0 : ∀ {α β γ} → SCN (S0 {α} {β} {γ})
 all-scn-S0 u p =
   S1 u , all-scn-S1 u p , S0⇓
 
-all-scn-SUC0 : ∀ u (p : SCN u) →
-  ∃ λ w → SCN w × SUC0 ⟨∙⟩ u ⇓ w
+all-scn-SUC0 : SCN (SUC0)
 all-scn-SUC0 u tt =
   SUC1 u , tt , SUC0⇓
 
-all-scn-REC2 : ∀ {α} u (p : SCN u) v (q : SCN v) w (r : SCN w) →
-  ∃ λ w′ → SCN w′ × REC2 {α} u v ⟨∙⟩ w ⇓ w′
+all-scn-REC2 : ∀ {α} u (p : SCN {α} u) v (q : SCN v) →
+  SCN (REC2 u v)
 all-scn-REC2 u p v q ZERO0 tt =
   u , p , REC2Z⇓
-all-scn-REC2 u p v q (SUC1 w) tt =
-  let w₁ , r₁ , ⇓w₁ = q w tt
-      w₂ , r₂ , ⇓w₂ = all-scn-REC2 u p v q w tt
-      w₃ , r₃ , ⇓w₃ = r₁ w₂ r₂
-  in w₃ , r₃ , REC2S⇓ ⇓w₁ ⇓w₂ ⇓w₃
+all-scn-REC2 u p v q (SUC1 w) tt
+  with q w tt
+... | w₁ , r₁ , ⇓w₁
+  with all-scn-REC2 u p v q w tt
+... | w₂ , r₂ , ⇓w₂
+  with r₁ w₂ r₂
+... | w₃ , r₃ , ⇓w₃ =
+  w₃ , r₃ , REC2S⇓ ⇓w₁ ⇓w₂ ⇓w₃
 
-all-scn-REC1 : ∀ {α} u (p : SCN u) v (q : SCN v) →
-  ∃ λ w → SCN w × REC1 {α} u ⟨∙⟩ v ⇓ w
+all-scn-REC1 : ∀ {α} u (p : SCN {α} u) →
+  SCN (REC1 u)
 all-scn-REC1 u p v q =
   REC2 u v , all-scn-REC2 u p v q , REC1⇓
 
-all-scn-REC0 : ∀ {α} u (p : SCN u) →
-  ∃ λ w → SCN w × REC0 {α} ⟨∙⟩ u ⇓ w
+all-scn-REC0 : ∀ {α} →
+  SCN (REC0 {α})
 all-scn-REC0 u p =
   REC1 u , all-scn-REC1 u p , REC0⇓
 
@@ -378,11 +477,10 @@ all-sc K =
   K0 , all-scn-K0 , K⇓
 all-sc S =
   S0 , all-scn-S0 , S⇓
-all-sc (x ∙ y) =
-  let u , p , ⇓u = all-sc x
-      v , q , ⇓v = all-sc y
-      w , r , ⇓w = p v q
-  in w , r , ∙⇓ ⇓u ⇓v ⇓w
+all-sc (x ∙ y) with all-sc x | all-sc y
+... | u , p , ⇓u | v , q , ⇓v with p v q
+... | w , r , ⇓w =
+  w , r , A⇓ ⇓u ⇓v ⇓w
 all-sc ZERO =
   ZERO0 , tt , ZERO⇓
 all-sc SUC =
@@ -396,66 +494,36 @@ all-sc REC =
 --
 
 all-⇓ : ∀ {α} (x : Tm α) → ∃ λ u → x ⇓ u
-all-⇓ x =
-  let u , p , ⇓u = all-sc x
-  in u , ⇓u
+all-⇓ x with all-sc x
+... | u , p , ⇓u =
+  u , ⇓u
+
+module ProofRelevantNormalizer where
+
+  -- all-sc returns the result of normalization,
+  -- thus we actually have a normilizer. Its drawback, however, is
+  -- that computing the normal form is mixed with computing a proof.
+
+  nf : ∀ {α} (x : Tm α) → Nf α
+
+  nf x with all-sc x
+  ... | u , p , x⇓u = u
 
 --
--- Normalizer!
+-- Structurally recursive normalizer.
+-- (The normal form is not produced from the proof.)
 --
 
 nf : ∀ {α} (x : Tm α) → Nf α
+
 nf x with all-sc x
-... | u , ⇓u , p = u
-
-module TerminatingNorm where
-
-  norm : ∀ {α} → Tm α → Tm α
-  norm x = ⌜ proj₁ (all-⇓ x) ⌝
-
-  norm-III : norm III ≡ S ∙ K ∙ K
-  norm-III = refl
-
-  -- The problem with the above `norm` is that it's difficult to extract
-  -- the recursive normalizer by removing the proof-related stuff.
-
+... | u , p , x⇓u with eval x x⇓u
+... | u′ , u′≡u = u′
 
 --
--- Determinism: x ⇓ u → x ⇓ v → u ≡ v
---
-
-⟨∙⟩⇓-det : ∀ {α β} {u : Nf (α ⇒ β)} {v : Nf α} {w w′ : Nf β} →
-  u ⟨∙⟩ v ⇓ w → u ⟨∙⟩ v ⇓ w′ → w ≡ w′
-⟨∙⟩⇓-det K0⇓ K0⇓ = refl
-⟨∙⟩⇓-det K1⇓ K1⇓ = refl
-⟨∙⟩⇓-det S0⇓ S0⇓ = refl
-⟨∙⟩⇓-det S1⇓ S1⇓ = refl
-⟨∙⟩⇓-det (S2⇓ p q r) (S2⇓ p′ q′ r′)
-  rewrite ⟨∙⟩⇓-det p p′ | ⟨∙⟩⇓-det q q′ | ⟨∙⟩⇓-det r r′
-  = refl
-⟨∙⟩⇓-det SUC0⇓ SUC0⇓ = refl
-⟨∙⟩⇓-det REC0⇓ REC0⇓ = refl
-⟨∙⟩⇓-det REC1⇓ REC1⇓ = refl
-⟨∙⟩⇓-det REC2Z⇓ REC2Z⇓ = refl
-⟨∙⟩⇓-det (REC2S⇓ p q r) (REC2S⇓ p′ q′ r′)
-  rewrite ⟨∙⟩⇓-det p p′ | ⟨∙⟩⇓-det q q′ | ⟨∙⟩⇓-det r r′
-  = refl
-
-⇓-det : ∀ {α} {x : Tm α} {u u′ : Nf α} →
-  x ⇓ u → x ⇓ u′ → u ≡ u′
-⇓-det K⇓ K⇓ = refl
-⇓-det S⇓ S⇓ = refl
-⇓-det (∙⇓ p q r) (∙⇓ p′ q′ r′)
-  rewrite ⇓-det p p′ | ⇓-det q q′ | ⟨∙⟩⇓-det r r′
-  = refl
-⇓-det ZERO⇓ ZERO⇓ = refl
-⇓-det SUC⇓ SUC⇓ = refl
-⇓-det REC⇓ REC⇓ = refl
-
---
--- Completeness: terms are convertible to their normal forms
---     x ⇓ u → x ≈ ⌜ u ⌝
+-- Completeness: terms are convertible to their normal forms.
 -- 
+-- u ⟨∙⟩ v ⇓ w → ⌜ u ⌝ ∙ ⌜ v ⌝ ≈ ⌜ w ⌝
 
 ⟨∙⟩⇓-complete : ∀ {α β} {u : Nf (α ⇒ β)} {v : Nf α} {w : Nf β} →
   u ⟨∙⟩ v ⇓ w → ⌜ u ⌝ ∙ ⌜ v ⌝ ≈ ⌜ w ⌝
@@ -496,7 +564,7 @@ module TerminatingNorm where
   x ⇓ u → x ≈ ⌜ u ⌝
 ⇓-complete K⇓ = ≈refl
 ⇓-complete S⇓ = ≈refl
-⇓-complete (∙⇓ {x = x} {y} {u} {v} {uv} x⇓u y⇓v ⇓uv) = begin
+⇓-complete (A⇓ {x = x} {y} {u} {v} {uv} x⇓u y⇓v ⇓uv) = begin
   x ∙ y
     ≈⟨ ≈cong∙ (⇓-complete x⇓u) (⇓-complete y⇓v) ⟩
   ⌜ u ⌝ ∙ ⌜ v ⌝
@@ -510,131 +578,64 @@ module TerminatingNorm where
 
 -- x ≈ ⌜ nf x ⌝
 
-nf-complete : ∀ {α} (x : Tm α) →
-  x ≈ ⌜ nf x ⌝
-nf-complete x with all-sc x
-... | u , p , ⇓u =
-  ⇓-complete ⇓u
+complete : ∀ {α} (x : Tm α) → x ≈ ⌜ nf x ⌝
+
+complete x with all-sc x
+... | u , p , x⇓u with eval x x⇓u
+... | ._ , refl =
+  ⇓-complete x⇓u
 
 
 --
--- Soundness: the normal forms of two convertible terms are equal
+-- Soundness: normalisation takes convertible terms to identical normal forms.
+--
+
 --     x ≈ y → x ⇓ u → y ⇓ v → u ≡ v
---
 
 ⇓-sound : ∀ {α} {x y : Tm α} {u v : Nf α} →
   x ≈ y → x ⇓ u → y ⇓ v → u ≡ v
 
 ⇓-sound ≈refl x⇓u x⇓v =
   ⇓-det x⇓u x⇓v
-⇓-sound (≈sym x≈y) x⇓u x⇓v =
-  sym $ ⇓-sound x≈y x⇓v x⇓u
-⇓-sound (≈trans {α} {x} {z} {y} x≈z z≈y) x⇓u y⇓v =
-  let w , r , z⇓w = all-sc z
-  in trans (⇓-sound x≈z x⇓u z⇓w) (⇓-sound z≈y z⇓w y⇓v)
-⇓-sound ≈K (∙⇓ (∙⇓ K⇓ x⇓′ K0⇓) y⇓ K1⇓) x⇓′′ =
+⇓-sound {u = u} {v} (≈sym y≈x) x⇓u x⇓v = begin
+  u ≡⟨ sym $ ⇓-sound y≈x x⇓v x⇓u ⟩ v ∎
+  where open ≡-Reasoning
+⇓-sound {u = u} {v} (≈trans {y = z} x≈z z≈y) x⇓u y⇓v
+  with all-sc z
+... | w , r , z⇓w = begin
+  u
+    ≡⟨ ⇓-sound x≈z x⇓u z⇓w ⟩
+  w
+    ≡⟨ ⇓-sound z≈y z⇓w y⇓v ⟩
+  v
+  ∎
+  where open ≡-Reasoning
+⇓-sound ≈K (A⇓ (A⇓ K⇓ x⇓′ K0⇓) y⇓ K1⇓) x⇓′′ =
   ⇓-det x⇓′ x⇓′′
 ⇓-sound ≈S
-  (∙⇓ (∙⇓ (∙⇓ S⇓ x⇓ S0⇓) y⇓ S1⇓) z⇓ (S2⇓ ⇓uw ⇓vw ⇓uwvw))
+  (A⇓ (A⇓ (A⇓ S⇓ x⇓ S0⇓) y⇓ S1⇓) z⇓ (S2⇓ ⇓uw ⇓vw ⇓uwvw))
   xzyz⇓ =
-  ⇓-det (∙⇓ (∙⇓ x⇓ z⇓ ⇓uw) (∙⇓ y⇓ z⇓ ⇓vw) ⇓uwvw) xzyz⇓
-⇓-sound (≈cong∙ x≈x′ y≈y′) (∙⇓ ⇓u ⇓v ⇓uv) (∙⇓ ⇓u′ ⇓v′ ⇓u′v′)
+  ⇓-det (A⇓ (A⇓ x⇓ z⇓ ⇓uw) (A⇓ y⇓ z⇓ ⇓vw) ⇓uwvw) xzyz⇓
+⇓-sound (≈cong∙ x≈x′ y≈y′) (A⇓ ⇓u ⇓v ⇓uv) (A⇓ ⇓u′ ⇓v′ ⇓u′v′)
   rewrite ⇓-sound x≈x′ ⇓u ⇓u′ | ⇓-sound y≈y′ ⇓v ⇓v′  =
   ⟨∙⟩⇓-det ⇓uv ⇓u′v′
 ⇓-sound ≈RZ
-  (∙⇓ (∙⇓ (∙⇓ REC⇓ x⇓u REC0⇓) x⇓v REC1⇓) ZERO⇓ REC2Z⇓) x⇓u′ =
+  (A⇓ (A⇓ (A⇓ REC⇓ x⇓u REC0⇓) x⇓v REC1⇓) ZERO⇓ REC2Z⇓) x⇓u′ =
   ⇓-det x⇓u x⇓u′
 ⇓-sound ≈RS
-  (∙⇓ (∙⇓ (∙⇓ REC⇓ p1 REC0⇓) p2 REC1⇓) (∙⇓ SUC⇓ p3 SUC0⇓)
+  (A⇓ (A⇓ (A⇓ REC⇓ p1 REC0⇓) p2 REC1⇓) (A⇓ SUC⇓ p3 SUC0⇓)
     (REC2S⇓ p5 p4 p6))
-  (∙⇓ (∙⇓ q7 q8 q5) (∙⇓ (∙⇓ (∙⇓ REC⇓ q1 REC0⇓) q2 REC1⇓) q3 q4) q6)
+  (A⇓ (A⇓ q7 q8 q5) (A⇓ (A⇓ (A⇓ REC⇓ q1 REC0⇓) q2 REC1⇓) q3 q4) q6)
   rewrite ⇓-det p1 q1 | ⇓-det p2 q2 | ⇓-det p3 q3 | ⟨∙⟩⇓-det p4 q4
         | ⇓-det q2 q7 | ⇓-det q3 q8 | ⟨∙⟩⇓-det p5 q5 | ⟨∙⟩⇓-det p6 q6
   = refl
 
+-- x ≈ y → nf x ≡ nf y
 
---
--- Now, as suggested by Bove and Capretta, we add to the normalization function
--- an additional argument: a proof of the existence of the normal form.
---
--- Since, unlike Coq, Agda doesn't make a distinction
--- between `Set` and `Prop`, it's not clear if the trick
--- by Bove and Capretta makes sense (for Agda)?
---
--- Probably, the answer is that, informally, it is easy to see that
--- the (following) function `eval` is an "instrumented" version of
--- the "naive" function `⟦_⟧`. And `eval` uses the propositional argument
--- neither for making decisions nor for producing the normal form.
--- Hence, the propositional argument can be removed to produce
--- the original function `⟦_⟧` (and `⟦_⟧` is total).
---
+sound : ∀ {α} {x y : Tm α} → x ≈ y → nf x ≡ nf y
 
--- apply
-
-mutual
-
-  apply : ∀ {α β} (u : Nf (α ⇒ β)) (v : Nf α)
-    {w} (uv⇓ : u ⟨∙⟩ v ⇓ w) → ∃ λ w′ → w′ ≡ w
-  apply K0 u K0⇓ = K1 u , refl
-  apply (K1 u) v K1⇓ = u , refl
-  apply S0 u S0⇓ = S1 u , refl
-  apply (S1 u) v S1⇓ = S2 u v , refl
-  apply (S2 u v) w (S2⇓ uw⇓ vw⇓ uwvw⇓) =
-    apply≡ (apply u w uw⇓) (apply v w vw⇓) uwvw⇓
-  apply SUC0 u SUC0⇓ = SUC1 u , refl
-  apply REC0 u REC0⇓ = REC1 u , refl
-  apply (REC1 u) v REC1⇓ = REC2 u v , refl
-  apply (REC2 u v) .ZERO0 REC2Z⇓ = u , refl
-  apply (REC2 u v) ._ (REC2S⇓ {w = w} ⇓w′ ⇓w′′ ⇓w′′′) =
-    apply≡ (apply v w ⇓w′) (apply (REC2 u v) w ⇓w′′) ⇓w′′′
-
-  apply≡ : ∀ {α β} {u : Nf (α ⇒ β)} {v : Nf α}
-    (p : ∃ λ u′ → u′ ≡ u) (q : ∃ λ v′ → v′ ≡ v) {w} →
-    u ⟨∙⟩ v ⇓ w → ∃ (λ w′ → w′ ≡ w)
-  apply≡ (u′ , refl) (v′ , refl) ⇓w =
-    apply u′ v′ ⇓w
-
--- eval
-
-eval : ∀ {α} (x : Tm α) {u} (x⇓ : x ⇓ u) → ∃ λ u′ → u′ ≡ u
-
-eval K K⇓ = K0 , refl
-eval S S⇓ = S0 , refl
-eval (x ∙ y) (∙⇓ x⇓ y⇓ ⇓w) =
-  apply≡ (eval x x⇓) (eval y y⇓) ⇓w
-eval ZERO ZERO⇓ = ZERO0 , refl
-eval SUC SUC⇓ = SUC0 , refl
-eval REC REC⇓ = REC0 , refl
-
-
-module BoveCaprettaNorm where
-
-  norm : ∀ {α} → Tm α → Tm α
-  norm x =
-    let u , x⇓u = all-⇓ x
-    in ⌜ proj₁ (eval x x⇓u) ⌝
-
-  norm-III : norm III ≡ S ∙ K ∙ K
-  norm-III = refl
-
---
--- nf x ≡ nf-bk
--- Hence, nf-bk is complete and sound.
---
-
-nf-bk : ∀ {α} (x : Tm α) → Nf α
-
-nf-bk x with all-sc x
-... | u , p , ⇓u with eval x ⇓u
-... | u′ , u′≡u = u′
-
-nf≡nf-bk : ∀ {α} (x : Tm α) → nf x ≡ nf-bk x
-
-nf≡nf-bk x with all-sc x
-... | u , p , ⇓u with eval x ⇓u
-nf≡nf-bk K | u , ⇓u , p | u′ , u′≡u = sym u′≡u
-nf≡nf-bk S | u , ⇓u , p | u′ , u′≡u = sym u′≡u
-nf≡nf-bk (x ∙ y) | u , ⇓u , p | u′ , u′≡u = sym u′≡u
-nf≡nf-bk ZERO | u , ⇓u , p | u′ , u′≡u = sym u′≡u
-nf≡nf-bk SUC | u , ⇓u , p | u′ , u′≡u = sym u′≡u
-nf≡nf-bk REC | u , ⇓u , p | u′ , u′≡u = sym u′≡u
+sound {α} {x} {y} x≈y with all-sc x | all-sc y
+... | u , p , ⇓u | v , q , ⇓v
+  with eval x ⇓u | eval y ⇓v
+... | ._ , refl | ._ , refl
+  = ⇓-sound x≈y ⇓u ⇓v
