@@ -1007,13 +1007,14 @@ SCV {⋆} {Γ} (ne us) = ∃ λ (ns : Ne Nf Γ ⋆) →
   QNeVal us ⇓ ns
   × embNeVal us ≈ embNeNf ns
 SCV {α ⇒ β} {Γ} u = ∀ {Β} (η : Β ≤ Γ) (v : Val Β α) (q : SCV v) →
-  ∃ λ w → (val≤ η u) ⟨∙⟩ v ⇓ w
+  ∃ λ w → SCV w
+    × (val≤ η u) ⟨∙⟩ v ⇓ w
     × embVal (val≤ η u) ∙ embVal v ≈ embVal w
-    × SCV w
 
-SCE : ∀ {Γ Δ} (ρ : Env Γ Δ) → Set
-SCE [] = ⊤
-SCE (u ∷ ρ) = SCV u × SCE ρ
+data SCE {Γ : Ctx} : ∀ {Δ : Ctx} (ρ : Env Γ Δ) → Set where
+  [] : SCE []
+  _∷_ : ∀ {α Δ} {u : Val Γ α} (p : SCV u) {ρ : Env Γ Δ} (q : SCE ρ) →
+    SCE (u ∷ ρ)
 
 --
 -- Weakening for SCV & SCE.
@@ -1029,8 +1030,8 @@ mutual
   scv≤ {⋆} (ne us) (ns , p , q) η =
     neNf≤ η ns , qNeVal≤ η p , embNe≈≤ η us ns q
   scv≤ {α ⇒ β} {Γ} u p {Β} η {Β′} η′ v q with p (η′ ● η) v q
-  ... | w , ●⇓w , ●≈w , r =
-    w , ∘⇓w , ∘≈w≤ , r
+  ... | w , r , ●⇓w , ●≈w =
+    w , r , ∘⇓w , ∘≈w≤
     where
     open ≈-Reasoning
     ∘≡● : val≤ η′ (val≤ η u) ≡ val≤ (η′ ● η) u
@@ -1048,8 +1049,8 @@ mutual
 
   sce≤ : ∀ {Γ Δ} (ρ : Env Γ Δ) (r : SCE ρ) →
     ∀ {Β} (η : Β ≤ Γ) → SCE (env≤ η ρ)
-  sce≤ [] r η = tt
-  sce≤ (u ∷ ρ) (p , r) η = scv≤ u p η , sce≤ ρ r η
+  sce≤ [] [] η = []
+  sce≤ (u ∷ ρ) (p ∷ r) η = scv≤ u p η ∷ sce≤ ρ r η
 
 --
 -- embVal (wkVal u) ≈ embVal u [ ↑ ]
@@ -1085,7 +1086,7 @@ mutual
   scv→val⇓ {α ⇒ β} {Γ} u p
     with neVal⇓→scv {α} {α ∷ Γ} (var zero) (var zero) var⇓ ≈refl
   ... | r with p wk (ne (var zero)) r
-  ... | v , ⇓v , ≈v , q with scv→val⇓ {β} v q
+  ... | v , q , ⇓v , ≈v with scv→val⇓ {β} v q
   ... | m , ⇓m , ≈m =
     lam m , ⇒⇓ ⇓v ⇓m , u≈m
     where
@@ -1111,7 +1112,7 @@ mutual
     ns , ⇓ns , ≈ns
   neVal⇓→scv {α ⇒ β} {Γ} us ns ⇓ns ≈ns {Β} η u p with  scv→val⇓ u p
   ... | m , ⇓m , u≈m =
-    ne (app us≤ u) , ne⇓ , ≈refl , r
+    ne (app us≤ u) , r , ne⇓ , ≈refl
     where
     open ≈-Reasoning
 
@@ -1152,8 +1153,9 @@ scv-var : ∀ {α Γ} (x : Var Γ α) → SCV (ne (var x))
 scv-var x = neVal⇓→scv (var x) (var x) var⇓ ≈refl
 
 sce-id-env : ∀ {Γ} → SCE (id-env {Γ})
-sce-id-env {[]} = tt
-sce-id-env {α ∷ Γ} = scv-var zero , sce≤ id-env sce-id-env wk
+sce-id-env {[]} = []
+sce-id-env {γ ∷ Γ} =
+  scv-var zero ∷ sce≤ id-env sce-id-env wk
 
 --
 -- The fundamental theorem about strong computability:
@@ -1163,14 +1165,14 @@ sce-id-env {α ∷ Γ} = scv-var zero , sce≤ id-env sce-id-env wk
 mutual
 
   all-scv : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) (r : SCE ρ) →
-    ∃ λ u → ⟦ t ⟧ ρ ⇓ u × (t [ embEnv ρ ] ≈ embVal u) × SCV u
+    ∃ λ u → SCV u × ⟦ t ⟧ ρ ⇓ u × (t [ embEnv ρ ] ≈ embVal u)
 
-  all-scv ø (u ∷ ρ) (p , r) =
-    u , ø⇓ , ≈proj , p
+  all-scv ø (u ∷ ρ) (p ∷ r) =
+    u , p , ø⇓ , ≈proj
   all-scv {β} {Γ} {Δ} (t ∙ t′) ρ r with all-scv t ρ r | all-scv t′ ρ r
-  ... | u , ⇓u , ≈u , p | v , ⇓v , ≈v , q with p ≤id v q
-  ... | w , ⇓w , ≈w , r′ =
-    w , ∙⇓ ⇓u ⇓v ⇓w′ , ≈w′ , r′
+  ... | u , p , ⇓u , ≈u | v , q , ⇓v , ≈v with p ≤id v q
+  ... | w , r′ , ⇓w , ≈w =
+    w , r′ , ∙⇓ ⇓u ⇓v ⇓w′ , ≈w′
     where
     open ≈-Reasoning
     ⇓w′ : u ⟨∙⟩ v ⇓ w
@@ -1188,12 +1190,12 @@ mutual
       embVal w
       ∎
   all-scv (ƛ t) ρ r =
-    lam t ρ , ƛ⇓ , ≈refl , r′
+    lam t ρ , r′ , ƛ⇓ , ≈refl
     where
     r′ : SCV (lam t ρ)
-    r′ η u p with all-scv t (u ∷ env≤ η ρ) (p , sce≤ ρ r η)
-    ... | v , ∷⇓v , ≈v , q =
-      v , lam⇓ ∷⇓v , ≈v′ , q
+    r′ η u p with all-scv t (u ∷ env≤ η ρ) (p ∷ sce≤ ρ r η)
+    ... | v , q , ∷⇓v , ≈v =
+      v , q , lam⇓ ∷⇓v , ≈v′
       where
       open ≈-Reasoning
       ≈v′ : (ƛ t) [ embEnv (env≤ η ρ) ] ∙ embVal u ≈ embVal v
@@ -1205,9 +1207,9 @@ mutual
         embVal v
         ∎
   all-scv (t [ σ ]) ρ r with all-sce σ ρ r
-  ... | ρ′ , ⇓ρ′ , ≃ρ′ , r′ with all-scv t ρ′ r′
-  ... | u , ⇓u , ≈u , p =
-    u , ⇓u′ , ≈u′ , p
+  ... | ρ′ , r′ , ⇓ρ′ , ≃ρ′ with all-scv t ρ′ r′
+  ... | u , p , ⇓u , ≈u =
+    u , p , ⇓u′ , ≈u′
     where
     open ≈-Reasoning
     ⇓u′ : ⟦ t [ σ ] ⟧ ρ ⇓ u
@@ -1224,14 +1226,14 @@ mutual
       ∎
 
   all-sce : ∀ {Β Γ Δ} (σ : Sub Γ Δ) (ρ : Env Β Γ) (r : SCE ρ) →
-    ∃ λ ρ′ → ⟦ σ ⟧* ρ ⇓ ρ′ × (σ ⊙ embEnv ρ ≃ embEnv ρ′) × SCE ρ′
+    ∃ λ ρ′ → SCE ρ′ × ⟦ σ ⟧* ρ ⇓ ρ′ × (σ ⊙ embEnv ρ ≃ embEnv ρ′)
 
   all-sce ı ρ r =
-    ρ , ι⇓ , ≃idl , r
+    ρ , r , ι⇓ , ≃idl
   all-sce (σ ⊙ σ′) ρ r with all-sce σ′ ρ r
-  ... | ρ′ , ⇓ρ′ , ≃ρ′ , r′ with all-sce σ ρ′ r′
-  ... | ρ′′ , ⇓ρ′′ , ≃ρ′′ , r′′ =
-    ρ′′ , ⊙⇓ ⇓ρ′ ⇓ρ′′ , ≃ρ′′′ , r′′
+  ... | ρ′ , r′ , ⇓ρ′ , ≃ρ′ with all-sce σ ρ′ r′
+  ... | ρ′′ , r′′ , ⇓ρ′′ , ≃ρ′′ =
+    ρ′′ , r′′ , ⊙⇓ ⇓ρ′ ⇓ρ′′ , ≃ρ′′′
     where
     open ≃-Reasoning
     ≃ρ′′′ : (σ ⊙ σ′) ⊙ embEnv ρ ≃ embEnv ρ′′
@@ -1245,8 +1247,8 @@ mutual
       embEnv ρ′′
       ∎
   all-sce (t ∷ σ) ρ r with all-scv t ρ r | all-sce σ ρ r
-  ... | u , ⇓u , ≈u , p | ρ′ , ⇓ρ′ , ≃ρ′ , r′ =
-    u ∷ ρ′ , ∷⇓ ⇓u ⇓ρ′ , ≃u∷ρ′ , (p , r′)
+  ... | u , p , ⇓u , ≈u | ρ′ , r′ , ⇓ρ′ , ≃ρ′ =
+    u ∷ ρ′ , (p ∷ r′) , ∷⇓ ⇓u ⇓ρ′ , ≃u∷ρ′
     where
     open ≃-Reasoning
     ≃u∷ρ′ : (t ∷ σ) ⊙ embEnv ρ ≃ embVal u ∷ embEnv ρ′
@@ -1259,8 +1261,8 @@ mutual
         ≈⟨ ≃cong∷ ≈refl ≃ρ′ ⟩
       embVal u ∷ embEnv ρ′
       ∎
-  all-sce ↑ (u ∷ ρ) (p , r) =
-    ρ , ↑⇓ , ≃wk , r
+  all-sce ↑ (u ∷ ρ) (p ∷ r) =
+    ρ , r , ↑⇓ , ≃wk
 
 
 --
@@ -1269,14 +1271,14 @@ mutual
 
 nf : ∀ {α Γ} (t : Tm Γ α) → Nf Γ α
 nf t with all-scv t id-env sce-id-env
-... | u , ⇓u , ≈u , p with scv→val⇓ u p
+... | u , p , ⇓u , ≈u with scv→val⇓ u p
 ... | n , ⇓n , ≈n = n
 
 -- This holds "by construction".
 
 ⇓nf :  ∀ {α Γ} (t : Tm Γ α) → Nf t ⇓ nf t
 ⇓nf t with all-scv t id-env sce-id-env
-... | u , ⇓u , ≈u , p with scv→val⇓ u p
+... | u , p , ⇓u , ≈u with scv→val⇓ u p
 ... | n , ⇓n , ≈n =
   nf⇓ (⟦ t ⟧ id-env ⇓ u ∋ ⇓u) (QVal u ⇓ n ∋ ⇓n)
 
@@ -1368,7 +1370,7 @@ stable≡ n with all-scv (embNf n) id-env sce-id-env
 complete : ∀ {α Γ} (t : Tm Γ α) → t ≈ embNf (nf t)
 
 complete t with all-scv t id-env sce-id-env
-... | u , ⇓u , ≈u , p with scv→val⇓ u p
+... | u , p , ⇓u , ≈u with scv→val⇓ u p
 ... | n , ⇓n , ≈n = begin
   t
     ≈⟨ ≈sym ≈id ⟩
