@@ -207,8 +207,8 @@ mutual
       t₁ ≈ t₂ → t₂ ≈ t₁
     ≈trans : ∀ {α Γ} {t₁ t₂ t₃ : Tm Γ α} →
       t₁ ≈ t₂ → t₂ ≈ t₃ → t₁ ≈ t₃
-    ≈cong∙ : ∀ {α β Γ} {t₁ t₂ : Tm Γ (α ⇒ β)} {u₁ u₂ : Tm Γ α} →
-      t₁ ≈ t₂ → u₁ ≈ u₂ → t₁ ∙ u₁ ≈ t₂ ∙ u₂
+    ≈cong∙ : ∀ {α β Γ} {f₁ f₂ : Tm Γ (α ⇒ β)} {t₁ t₂ : Tm Γ α} →
+      f₁ ≈ f₂ → t₁ ≈ t₂ → f₁ ∙ t₁ ≈ f₂ ∙ t₂
     ≈cong[] : ∀ {α Γ Δ} {t₁ t₂ : Tm Δ α } {σ₁ σ₂ : Sub Γ Δ} →
       t₁ ≈ t₂ → σ₁ ≃ σ₂ → t₁ [ σ₁ ] ≈ t₂ [ σ₂ ]
     ≈congƛ : ∀ {α β Γ} {t₁ t₂ : Tm (α ∷ Γ) β} →
@@ -221,8 +221,8 @@ mutual
       t [ σ ⊙ σ′ ] ≈ t [ σ ] [ σ′ ]
     ≈lam : ∀ {α β Γ Δ} {t : Tm (α ∷ Δ) β} {σ : Sub Γ Δ} →
       (ƛ t) [ σ ] ≈ (ƛ t [ ø ∷ (σ ⊙ ↑) ])
-    ≈app : ∀ {α β Γ Δ} {t₁ : Tm Δ (α ⇒ β)} {t₂ : Tm Δ α} {σ : Sub Γ Δ} →
-      (t₁ ∙ t₂) [ σ ] ≈ t₁ [ σ ] ∙ t₂ [ σ ]
+    ≈app : ∀ {α β Γ Δ} {f : Tm Δ (α ⇒ β)} {t : Tm Δ α} {σ : Sub Γ Δ} →
+      (f ∙ t) [ σ ] ≈ f [ σ ] ∙ t [ σ ]
     ≈βσ : ∀ {α β Γ Δ} {t : Tm (α ∷ Δ) β} {σ : Sub Γ Δ} {t′ : Tm Γ α} →
       (ƛ t) [ σ ] ∙ t′ ≈ t [ t′ ∷ σ ]
     ≈η : ∀ {α β Γ} {t : Tm Γ (α ⇒ β)} →
@@ -262,8 +262,8 @@ module ≈-Reasoning {Γ} {α : Ty} = EqReasoning (≈setoid {Γ} {α})
 --
 
 data Var : Ctx → Ty → Set where
-  vz : ∀ {α Γ} → Var (α ∷ Γ) α
-  vs : ∀ {α β Γ} (x : Var Γ α) → Var (β ∷ Γ) α
+  zero : ∀ {α Γ} → Var (α ∷ Γ) α
+  suc  : ∀ {α β Γ} (x : Var Γ α) → Var (β ∷ Γ) α
 
 data Ne (T : Ctx → Ty → Set) : Ctx → Ty → Set where
   var : ∀ {α Γ} (x : Var Γ α) → Ne T Γ α
@@ -293,7 +293,7 @@ module NaiveEval where
     ⟦ ƛ t ⟧ ρ = lam t ρ
     ⟦ t [ σ ] ⟧ ρ = ⟦ t ⟧ (⟦ σ ⟧* ρ)
 
-    ⟦_⟧*_ : ∀ {Γ Δ Σ} (σ : Sub Γ Δ) (ρ : Env Σ Γ) → Env Σ Δ
+    ⟦_⟧*_ : ∀ {Β Γ Δ} (σ : Sub Β Γ) (ρ : Env Δ Β) → Env Δ Γ
     ⟦ ı ⟧* ρ = ρ
     ⟦ σ ⊙ σ′ ⟧* ρ = ⟦ σ ⟧* (⟦ σ′ ⟧* ρ)
     ⟦ t ∷ σ ⟧* ρ = ⟦ t ⟧ ρ ∷ ⟦ σ ⟧* ρ
@@ -329,8 +329,8 @@ data Nf (Γ : Ctx) : Ty → Set where
 --
 
 embVar : ∀ {α Γ} (x : Var Γ α) → Tm Γ α
-embVar vz = ø
-embVar (vs x) = embVar x [ ↑ ]
+embVar zero = ø
+embVar (suc x) = embVar x [ ↑ ]
 
 sub-from-[] : ∀ {Γ} → Sub Γ []
 sub-from-[] {[]} = ı
@@ -409,9 +409,9 @@ assoc● (≤lift η) (≤lift η′) (≤lift η′′) = cong ≤lift (assoc�
 
 var≤ : ∀ {Γ Δ} (η : Γ ≤ Δ) {α} (x : Var Δ α) → Var Γ α
 var≤ ≤[] x = x
-var≤ (≤weak η) x = vs (var≤ η x)
-var≤ (≤lift η) vz = vz
-var≤ (≤lift η) (vs x) = vs (var≤ η x)
+var≤ (≤weak η) x = suc (var≤ η x)
+var≤ (≤lift η) zero = zero
+var≤ (≤lift η) (suc x) = suc (var≤ η x)
 
 mutual
 
@@ -449,8 +449,8 @@ sub≤ (≤lift η) = ø ∷ sub≤ η ⊙ ↑
 --
 
 var≤∘≤id : ∀ {α Γ} (x : Var Γ α) → var≤ ≤id x ≡ x
-var≤∘≤id vz = refl
-var≤∘≤id (vs x) = cong vs (var≤∘≤id x)
+var≤∘≤id zero = refl
+var≤∘≤id (suc x) = cong suc (var≤∘≤id x)
 
 mutual
 
@@ -525,7 +525,7 @@ wkEnv* (α ∷ Δ) ρ = wkEnv (wkEnv* Δ ρ)
 
 id-env : ∀ {Γ} → Env Γ Γ
 id-env {[]} = []
-id-env {α ∷ Γ} = ne (var vz) ∷ wkEnv id-env
+id-env {α ∷ Γ} = ne (var zero) ∷ wkEnv id-env
 
 --
 -- Recursive normalizer.
@@ -541,7 +541,7 @@ module NaiveNorm where
     qVal : ∀ {α Γ} (u : Val Γ α) → Nf Γ α
     qVal {⋆} (ne us) = ne (qNeVal us)
     qVal {α ⇒ β} f =
-      lam (qVal (wkVal f ⟨∙⟩ ne (var vz)))
+      lam (qVal (wkVal f ⟨∙⟩ ne (var zero)))
 
     qNeVal : ∀ {α Γ} (us : Ne Val Γ α) → Ne Nf Γ α
     qNeVal (var x) = var x
@@ -550,13 +550,13 @@ module NaiveNorm where
   nf : ∀ {α Γ} (t : Tm Γ α) → Nf Γ α
   nf t = qVal (⟦ t ⟧ id-env)
 
-  nf-III : nf III ≡ lam (ne (var vz))
+  nf-III : nf III ≡ lam (ne (var zero))
   nf-III = refl
 
-  nf-SKK : nf (SKK {⋆}) ≡ lam (ne (var vz))
+  nf-SKK : nf (SKK {⋆}) ≡ lam (ne (var zero))
   nf-SKK = refl
 
-  nf-SKK∙I : nf (SKK ∙ I {⋆}) ≡ lam (ne (var vz))
+  nf-SKK∙I : nf (SKK ∙ I {⋆}) ≡ lam (ne (var zero))
   nf-SKK∙I = refl
 
 --
@@ -575,7 +575,7 @@ mutual
       ⟦ t ∙ t′ ⟧ ρ ⇓ w
     ƛ⇓ : ∀ {α β Γ Δ} {t : Tm (α ∷ Δ) β} {ρ : Env Γ Δ} →
       ⟦ ƛ t ⟧ ρ ⇓ lam t ρ
-    []⇓ : ∀ {α Γ Δ Σ} {t : Tm Σ α } {σ : Sub Δ Σ} {ρ : Env Γ Δ} {ρ′ u}
+    []⇓ : ∀ {α Γ Δ Δ′} {t : Tm Δ′ α } {σ : Sub Δ Δ′} {ρ : Env Γ Δ} {ρ′ u}
       (⇓ρ′ : ⟦ σ ⟧* ρ ⇓ ρ′) (⇓u : ⟦ t ⟧ ρ′ ⇓ u) →
       ⟦ t [ σ ] ⟧ ρ ⇓ u
 
@@ -607,7 +607,7 @@ mutual
       (⇓ns : QNeVal us ⇓ ns) →
       QVal (ne us) ⇓ ne ns
     ⇒⇓ : ∀ {α β Γ} {f : Val Γ (α ⇒ β)} {u n} →
-      (⇓u : wkVal f ⟨∙⟩ ne (var vz) ⇓ u) (⇓n : QVal u ⇓ n) →
+      (⇓u : wkVal f ⟨∙⟩ ne (var zero) ⇓ u) (⇓n : QVal u ⇓ n) →
       QVal f ⇓ lam n
 
   data QNeVal_⇓_ : ∀ {α Γ} (us : Ne Val Γ α) (ns : Ne Nf Γ α) → Set where
@@ -623,9 +623,9 @@ data Nf_⇓_ : ∀ {α Γ} (t : Tm Γ α) (n : Nf Γ α) → Set where
     (⇓u : ⟦ t ⟧ id-env ⇓ u) (⇓n : QVal u ⇓ n) →
     Nf t ⇓ n
 
-nf-III⇓ : Nf III ⇓ lam (ne (var vz))
+nf-III⇓ : Nf III ⇓ lam (ne (var zero))
 nf-III⇓ = nf⇓ (∙⇓ ƛ⇓ (∙⇓ ƛ⇓ ƛ⇓ (lam⇓ ø⇓)) (lam⇓ ø⇓))
-                  (⇒⇓ (lam⇓ ø⇓) (⋆⇓ (var vz) var⇓))
+                  (⇒⇓ (lam⇓ ø⇓) (⋆⇓ (var zero) var⇓))
 
 --
 -- Structurally recursive evaluator.
@@ -677,8 +677,8 @@ mutual
 --
 
 var≤-≤id : ∀ {α Γ}(x : Var Γ α) → var≤ ≤id x ≡ x
-var≤-≤id vz = refl
-var≤-≤id (vs x) = cong vs (var≤-≤id x)
+var≤-≤id zero = refl
+var≤-≤id (suc x) = cong suc (var≤-≤id x)
 
 
 -- Variables.
@@ -687,10 +687,10 @@ var≤∘ : ∀ {α Γ₁ Γ₂ Γ₃}
   (η : Γ₁ ≤ Γ₂) (η′ : Γ₂ ≤ Γ₃) (x : Var Γ₃ α) →
   var≤ η (var≤ η′ x) ≡ var≤ (η ● η′) x
 var≤∘ ≤[] ≤[] x = refl
-var≤∘ (≤weak η) η′ x = cong vs (var≤∘ η η′ x)
-var≤∘ (≤lift η) (≤weak η′) x = cong vs (var≤∘ η η′ x)
-var≤∘ (≤lift η) (≤lift η′) vz = refl
-var≤∘ (≤lift η) (≤lift η′) (vs x) = cong vs (var≤∘ η η′ x)
+var≤∘ (≤weak η) η′ x = cong suc (var≤∘ η η′ x)
+var≤∘ (≤lift η) (≤weak η′) x = cong suc (var≤∘ η η′ x)
+var≤∘ (≤lift η) (≤lift η′) zero = refl
+var≤∘ (≤lift η) (≤lift η′) (suc x) = cong suc (var≤∘ η η′ x)
 
 -- Values and environments.
 
@@ -778,42 +778,42 @@ wkVal∘val≤ η u = begin
 embVar∘≤ :  ∀ {α Β Γ} (η : Β ≤ Γ) (x : Var Γ α) →
   embVar (var≤ η x) ≈ embVar x [ sub≤ η ]
 embVar∘≤ ≤[] x = ≈sym ≈id
-embVar∘≤ (≤weak η) vz = begin
-  embVar (var≤ (≤weak η) vz)
+embVar∘≤ (≤weak η) zero = begin
+  embVar (var≤ (≤weak η) zero)
     ≡⟨⟩
-  embVar (var≤ η vz) [ ↑ ]
-    ≈⟨ ≈cong[] (embVar∘≤ η vz) ≃refl ⟩
+  embVar (var≤ η zero) [ ↑ ]
+    ≈⟨ ≈cong[] (embVar∘≤ η zero) ≃refl ⟩
   ø [ sub≤ η ] [ ↑ ]
     ≈⟨ ≈sym ≈comp ⟩
   ø [ sub≤ η ⊙ ↑ ]
     ≡⟨⟩
-  embVar vz [ sub≤ (≤weak η) ]
+  embVar zero [ sub≤ (≤weak η) ]
   ∎
   where open ≈-Reasoning
-embVar∘≤ (≤weak η) (vs x) = begin
-  embVar (var≤ (≤weak η) (vs x))
+embVar∘≤ (≤weak η) (suc x) = begin
+  embVar (var≤ (≤weak η) (suc x))
     ≡⟨⟩
-  embVar (var≤ η (vs x)) [ ↑ ]
-    ≈⟨ ≈cong[] (embVar∘≤ η (vs x)) ≃refl ⟩
+  embVar (var≤ η (suc x)) [ ↑ ]
+    ≈⟨ ≈cong[] (embVar∘≤ η (suc x)) ≃refl ⟩
   embVar x [ ↑ ] [ sub≤ η ] [ ↑ ]
     ≈⟨ ≈sym ≈comp ⟩
   embVar x [ ↑ ] [ sub≤ η ⊙ ↑ ]
     ≡⟨⟩
-  embVar (vs x) [ sub≤ (≤weak η) ]
+  embVar (suc x) [ sub≤ (≤weak η) ]
   ∎
   where open ≈-Reasoning
-embVar∘≤ (≤lift η) vz = begin
-  embVar (var≤ (≤lift η) vz)
+embVar∘≤ (≤lift η) zero = begin
+  embVar (var≤ (≤lift η) zero)
     ≡⟨⟩
   ø
     ≈⟨ ≈sym ≈proj ⟩
   ø [ ø ∷ sub≤ η ⊙ ↑ ]
     ≡⟨⟩
-  embVar vz [ sub≤ (≤lift η) ]
+  embVar zero [ sub≤ (≤lift η) ]
   ∎
   where open ≈-Reasoning
-embVar∘≤ (≤lift η) (vs x) = begin
-  embVar (var≤ (≤lift η) (vs x))
+embVar∘≤ (≤lift η) (suc x) = begin
+  embVar (var≤ (≤lift η) (suc x))
     ≡⟨⟩
   embVar (var≤ η x) [ ↑ ]
     ≈⟨ ≈cong[] (embVar∘≤ η x) ≃refl ⟩
@@ -825,7 +825,7 @@ embVar∘≤ (≤lift η) (vs x) = begin
     ≈⟨ ≈comp ⟩
   embVar x [ ↑ ] [ ø ∷ sub≤ η ⊙ ↑ ]
     ≡⟨⟩
-  embVar (vs x) [ sub≤ (≤lift η) ]
+  embVar (suc x) [ sub≤ (≤lift η) ]
   ∎
   where open ≈-Reasoning
 
@@ -966,10 +966,10 @@ mutual
   qVal≤ η (⇒⇓ {f = f} {u} {n} ⇓u ⇓n) =
     ⇒⇓ ⇓u′′′ ⇓n′
     where
-      ⇓u′ : val≤ (≤lift η) (wkVal f) ⟨∙⟩ ne (var vz) ⇓ val≤ (≤lift η) u
+      ⇓u′ : val≤ (≤lift η) (wkVal f) ⟨∙⟩ ne (var zero) ⇓ val≤ (≤lift η) u
       ⇓u′ = ⟨∙⟩⇓≤ (≤lift η) ⇓u
-      ⇓u′′′ : wkVal (val≤ η f) ⟨∙⟩ ne (var vz) ⇓ val≤ (≤lift η) u
-      ⇓u′′′ = subst (λ w → w ⟨∙⟩ ne (var vz) ⇓ val≤ (≤lift η) u)
+      ⇓u′′′ : wkVal (val≤ η f) ⟨∙⟩ ne (var zero) ⇓ val≤ (≤lift η) u
+      ⇓u′′′ = subst (λ w → w ⟨∙⟩ ne (var zero) ⇓ val≤ (≤lift η) u)
                     (sym $ wkVal∘val≤ η f) ⇓u′
       ⇓n′ : QVal val≤ (≤lift η) u ⇓ nf≤ (≤lift η) n
       ⇓n′ = qVal≤ (≤lift η) ⇓n
@@ -1064,11 +1064,6 @@ embVal∘wkVal u = begin
     ≈⟨ embVal∘≤ wk u ⟩
   embVal u [ sub≤ ≤id ⊙ ↑ ]
     ≈⟨ ≈cong[] ≈refl (≃cong⊙ ı≃sub≤-≤id ≃refl) ⟩
-  {-
-    ≈⟨ embVal∘≤ wk u ⟩
-  embVal u [ ı ⊙ ↑ ]
-    ≈⟨ ≈cong[] ≈refl ≃idl ⟩
-  -}
   embVal u [ ı ⊙ ↑ ]
     ≈⟨ ≈cong[] ≈refl ≃idl ⟩
   embVal u [ ↑ ]
@@ -1088,8 +1083,8 @@ mutual
   scv→val⇓ {⋆} (ne us) (ns , ⇓ns , ≈ns) =
     ne ns , ⋆⇓ us ⇓ns , ≈ns
   scv→val⇓ {α ⇒ β} {Γ} u p
-    with neVal⇓→scv {α} {α ∷ Γ} (var vz) (var vz) var⇓ ≈refl
-  ... | r with p wk (ne (var vz)) r
+    with neVal⇓→scv {α} {α ∷ Γ} (var zero) (var zero) var⇓ ≈refl
+  ... | r with p wk (ne (var zero)) r
   ... | v , ⇓v , ≈v , q with scv→val⇓ {β} v q
   ... | m , ⇓m , ≈m =
     lam m , ⇒⇓ ⇓v ⇓m , u≈m
@@ -1158,7 +1153,7 @@ scv-var x = neVal⇓→scv (var x) (var x) var⇓ ≈refl
 
 sce-id-env : ∀ {Γ} → SCE (id-env {Γ})
 sce-id-env {[]} = tt
-sce-id-env {α ∷ Γ} = scv-var vz , sce≤ id-env sce-id-env wk
+sce-id-env {α ∷ Γ} = scv-var zero , sce≤ id-env sce-id-env wk
 
 --
 -- The fundamental theorem about strong computability:
@@ -1277,24 +1272,32 @@ nf t with all-scv t id-env sce-id-env
 ... | u , ⇓u , ≈u , p with scv→val⇓ u p
 ... | n , ⇓n , ≈n = n
 
+-- This holds "by construction".
+
+⇓nf :  ∀ {α Γ} (t : Tm Γ α) → Nf t ⇓ nf t
+⇓nf t with all-scv t id-env sce-id-env
+... | u , ⇓u , ≈u , p with scv→val⇓ u p
+... | n , ⇓n , ≈n =
+  nf⇓ (⟦ t ⟧ id-env ⇓ u ∋ ⇓u) (QVal u ⇓ n ∋ ⇓n)
+
 --
 -- Stability: nf (embNf n) ≡ n .
 --
 
 -- Nf embNf n ⇓ n
 
-var≤-vs : ∀ {α γ Β Γ} (η : Β ≤ γ ∷ Γ) (x : Var Γ α) →
-  var≤ η (vs x) ≡ var≤ (η ● wk) x
-var≤-vs (≤weak η) x =
-  cong vs (var≤-vs η x)
-var≤-vs (≤lift η) x = -- rewrite η●≤id η =
-  cong (λ η′ → vs (var≤ η′ x)) (sym $ η●≤id η)
+var≤-suc : ∀ {α γ Β Γ} (η : Β ≤ γ ∷ Γ) (x : Var Γ α) →
+  var≤ η (suc x) ≡ var≤ (η ● wk) x
+var≤-suc (≤weak η) x =
+  cong suc (var≤-suc η x)
+var≤-suc (≤lift η) x = -- rewrite η●≤id η =
+  cong (λ η′ → suc (var≤ η′ x)) (sym $ η●≤id η)
 
 ⟦embVar⟧≤⇓ : ∀ {α Β Γ} (x : Var Γ α) (η : Β ≤ Γ) →
   ⟦ embVar x ⟧ (env≤ η id-env) ⇓ ne (var (var≤ η x))
-⟦embVar⟧≤⇓ vz η = ø⇓
-⟦embVar⟧≤⇓ (vs x) η with ⟦embVar⟧≤⇓ x (η ● wk)
-... | p rewrite sym $ env≤∘ η wk id-env | sym $ var≤-vs η x  =
+⟦embVar⟧≤⇓ zero η = ø⇓
+⟦embVar⟧≤⇓ (suc x) η with ⟦embVar⟧≤⇓ x (η ● wk)
+... | p rewrite sym $ env≤∘ η wk id-env | sym $ var≤-suc η x  =
   []⇓ ↑⇓ p
 
 ⟦embVar⟧⇓ : ∀ {α Γ} (x : Var Γ α) →
@@ -1316,25 +1319,46 @@ mutual
   stable*⇓ : ∀ {α Γ} (ns : Ne Nf Γ α) →
     ∃ λ (us : Ne Val Γ α) →
       ⟦ embNeNf ns ⟧ id-env ⇓ ne us × QNeVal us ⇓ ns
-  stable*⇓ (var x) = var x , ⟦embVar⟧⇓ x , var⇓
+  stable*⇓ (var x) =
+    var x , ⟦embVar⟧⇓ x , var⇓
   stable*⇓ (app ns n) with stable*⇓ ns | stable⇓ n
   ... | us , ⇓us , ⇓ns | nf⇓ {u = u} ⇓u ⇓n =
     app us u , ∙⇓ ⇓us ⇓u ne⇓ , app⇓ ⇓ns ⇓n
 
+mutual
+
+  stable⇓≡ : ∀ {α Γ} (n : Nf Γ α) → ∃ λ n′ → Nf embNf n ⇓ n′ × n ≡ n′
+  stable⇓≡ (ne ns) with stable*⇓ ns
+  ... | us , ⇓us , ⇓ns =
+    ne ns , nf⇓ ⇓us (⋆⇓ us ⇓ns) , refl
+  stable⇓≡ (lam n) with stable⇓≡ n
+  ... | .n , nf⇓ ⇓u ⇓n , refl =
+    lam n , nf⇓ ƛ⇓ (⇒⇓ (lam⇓ ⇓u) ⇓n) , refl
+
+  stable*⇓≡ : ∀ {α Γ} (ns : Ne Nf Γ α) →
+    ∃ λ (us : Ne Val Γ α) →
+      ⟦ embNeNf ns ⟧ id-env ⇓ ne us × QNeVal us ⇓ ns
+  stable*⇓≡ (var x) =
+    var x , ⟦embVar⟧⇓ x , var⇓
+  stable*⇓≡ (app ns n)  with stable*⇓≡ ns | stable⇓≡ n
+  ... | us , ⇓us , ⇓ns | .n , nf⇓ {u = u} ⇓u ⇓n , refl =
+    app us u , ∙⇓ ⇓us ⇓u ne⇓ , app⇓ ⇓ns ⇓n
+
+{-
 postulate
 
   ⟦⟧⇓-det : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) u u′ →
     ⟦ t ⟧ ρ ⇓ u → ⟦ t ⟧ ρ ⇓ u′ → u ≡ u′
 
-{-
 -- nf (embNf n) ≡ n
 
 stable≡ : ∀ {α Γ} (n : Nf Γ α) → nf (embNf n) ≡ n
 stable≡ n with all-scv (embNf n) id-env sce-id-env
 ... | u , ⇓u , ≈u , p with scv→val⇓ u p
-... | n′ , ⇓n′ , ≈n′ with stable⇓ n
-... | nf⇓ {u = u′} ⇓u' ⇓n with ⟦⟧⇓-det (embNf n) id-env u u′ ⇓u ⇓u'
-... | u≡u′ = {!!}
+... | n′ , ⇓n′ , ≈n′ with stable⇓≡ n
+... | .n , nf⇓ {u = u′} ⇓u′ ⇓n , refl
+  with ⟦⟧⇓-det (embNf n) id-env u u′ ⇓u ⇓u′
+... | u≡u′ rewrite u≡u′ = {!!}
 -}
 
 --
@@ -1362,14 +1386,18 @@ complete t with all-scv t id-env sce-id-env
 -- Stability: nf (embNf n) ≡ n
 --
 
+{-
 postulate
 
   stable : ∀ {α Γ} (n : Nf Γ α) → nf (embNf n) ≡ n
+-}
 
 --
 -- Soundness normalisation takes convertible terms to identical
 -- normal forms.
 --
 
+{-
 postulate
   sound : ∀ {α Γ} (t t' : Tm Γ α) → t ≈ t' → nf t ≡ nf t'
+-}
