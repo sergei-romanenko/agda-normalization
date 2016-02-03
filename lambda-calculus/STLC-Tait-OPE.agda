@@ -565,20 +565,20 @@ mutual
       ⟦ t ∙ t′ ⟧ ρ ⇓ w
     ƛ⇓ : ∀ {α β Γ Δ} {t : Tm (α ∷ Δ) β} {ρ : Env Γ Δ} →
       ⟦ ƛ t ⟧ ρ ⇓ lam t ρ
-    []⇓ : ∀ {α Γ Δ Δ′} {t : Tm Δ′ α } {σ : Sub Δ Δ′} {ρ : Env Γ Δ} {ρ′ u}
-      (⇓ρ′ : ⟦ σ ⟧* ρ ⇓ ρ′) (⇓u : ⟦ t ⟧ ρ′ ⇓ u) →
+    []⇓ : ∀ {α Γ Δ Δ′} {t : Tm Δ′ α } {σ : Sub Δ Δ′} {ρ : Env Γ Δ} {θ u}
+      (⇓θ : ⟦ σ ⟧* ρ ⇓ θ) (⇓u : ⟦ t ⟧ θ ⇓ u) →
       ⟦ t [ σ ] ⟧ ρ ⇓ u
 
-  data ⟦_⟧*_⇓_ : ∀ {Γ Δ Δ′} (σ : Sub Δ Δ′) (ρ : Env Γ Δ) (ρ′ : Env Γ Δ′) →
+  data ⟦_⟧*_⇓_ : ∀ {Γ Δ Δ′} (σ : Sub Δ Δ′) (ρ : Env Γ Δ) (θ : Env Γ Δ′) →
        Set where
     ι⇓ : ∀ {Γ Σ} {ρ : Env Γ Σ} →
       ⟦ ı ⟧* ρ ⇓ ρ
-    ⊙⇓ : ∀ {Γ Δ Δ′ Δ′′} {σ : Sub Δ′ Δ′′} {σ′ : Sub Δ Δ′} {ρ : Env Γ Δ} {ρ′ ρ′′}
-      (⇓ρ′ : ⟦ σ′ ⟧* ρ ⇓ ρ′) (⇓ρ′′ : ⟦ σ ⟧* ρ′ ⇓ ρ′′) →
-      ⟦ σ ⊙ σ′ ⟧* ρ ⇓ ρ′′
-    ∷⇓ : ∀ {α Γ Δ Δ′} {t : Tm Δ α} {σ : Sub Δ Δ′} {ρ : Env Γ Δ} {u ρ′}
-      (⇓u : ⟦ t ⟧ ρ ⇓ u) (⇓ρ′ : ⟦ σ ⟧* ρ ⇓ ρ′) →
-      ⟦ t ∷ σ ⟧* ρ ⇓ (u ∷ ρ′)
+    ⊙⇓ : ∀ {Γ Δ Δ′ Δ′′} {σ : Sub Δ′ Δ′′} {σ′ : Sub Δ Δ′} {ρ : Env Γ Δ} {θ₁ θ₂}
+      (⇓θ₁ : ⟦ σ′ ⟧* ρ ⇓ θ₁) (⇓θ₂ : ⟦ σ ⟧* θ₁ ⇓ θ₂) →
+      ⟦ σ ⊙ σ′ ⟧* ρ ⇓ θ₂
+    ∷⇓ : ∀ {α Γ Δ Δ′} {t : Tm Δ α} {σ : Sub Δ Δ′} {ρ : Env Γ Δ} {u θ}
+      (⇓u : ⟦ t ⟧ ρ ⇓ u) (⇓θ : ⟦ σ ⟧* ρ ⇓ θ) →
+      ⟦ t ∷ σ ⟧* ρ ⇓ (u ∷ θ)
     ↑⇓ : ∀ {α Γ Δ} {u : Val Γ α} {ρ : Env Γ Δ} →
       ⟦ ↑ ⟧* (u ∷ ρ) ⇓ ρ
 
@@ -631,22 +631,28 @@ mutual
 
   ⟦ ø ⟧ u ∷ ρ & ø⇓ =
     u , refl
-  ⟦ t ∙ t′ ⟧ ρ & ∙⇓ ⇓u ⇓v ⇓w with ⟦ t ⟧ ρ & ⇓u | ⟦ t′ ⟧ ρ & ⇓v
-  ... | u′ , refl | v′ , refl = u′ ⟨∙⟩ v′ & ⇓w
+  ⟦ t ∙ t′ ⟧ ρ & ∙⇓ ⇓u ⇓v ⇓w
+    with ⟦ t ⟧ ρ & ⇓u | ⟦ t′ ⟧ ρ & ⇓v
+  ... | u , refl | v , refl = u ⟨∙⟩ v & ⇓w
   ⟦ ƛ t ⟧ ρ & ƛ⇓ =
     lam t ρ , refl
-  ⟦ t [ σ ] ⟧ ρ & []⇓ ⇓ρ′ ⇓w with ⟦ σ ⟧* ρ & ⇓ρ′
-  ... | ρ′′ , refl = ⟦ t ⟧ ρ′′ & ⇓w
+  ⟦ t [ σ ] ⟧ ρ & []⇓ ⇓θ ⇓w
+    with ⟦ σ ⟧* ρ & ⇓θ
+  ... | θ , refl = ⟦ t ⟧ θ & ⇓w
 
-  ⟦_⟧*_&_ : ∀ {B Γ Δ} (σ : Sub Γ Δ) (ρ : Env B Γ) {ρ′ : Env B Δ} →
-    ⟦ σ ⟧* ρ ⇓ ρ′ → ∃ λ ρ′′ → ρ′′ ≡ ρ′
+  ⟦_⟧*_&_ : ∀ {B Γ Δ} (σ : Sub Γ Δ) (ρ : Env B Γ) {θ : Env B Δ} →
+    ⟦ σ ⟧* ρ ⇓ θ → ∃ λ φ → φ ≡ θ
 
   ⟦ ı ⟧* ρ & ι⇓ =
     ρ , refl
-  ⟦ σ₁ ⊙ σ₂ ⟧* ρ & ⊙⇓ ⇓ρ₂ ⇓ρ₁ with ⟦ σ₂ ⟧* ρ & ⇓ρ₂
-  ... | ρ′′ , refl = ⟦ σ₁ ⟧* ρ′′ & ⇓ρ₁
-  ⟦ t ∷ σ ⟧* ρ & ∷⇓ ⇓u ⇓ρ′ with ⟦ t ⟧ ρ & ⇓u | ⟦ σ ⟧* ρ & ⇓ρ′
-  ... | u′ , refl | ρ′′ , refl = u′ ∷ ρ′′ , refl
+  ⟦ σ₁ ⊙ σ₂ ⟧* ρ & ⊙⇓ ⇓θ ⇓φ
+    with ⟦ σ₂ ⟧* ρ & ⇓θ
+  ... | θ , refl =
+    ⟦ σ₁ ⟧* θ & ⇓φ
+  ⟦ t ∷ σ ⟧* ρ & ∷⇓ ⇓u ⇓θ
+    with ⟦ t ⟧ ρ & ⇓u | ⟦ σ ⟧* ρ & ⇓θ
+  ... | u , refl | θ , refl =
+    u ∷ θ , refl
   ⟦ ↑ ⟧* u ∷ ρ & ↑⇓ =
     ρ , refl
 
@@ -719,14 +725,14 @@ mutual
   ⟦⟧⇓≤ η ø⇓ = ø⇓
   ⟦⟧⇓≤ η (∙⇓ ⇓u ⇓v ⇓w) = ∙⇓ (⟦⟧⇓≤ η ⇓u) (⟦⟧⇓≤ η ⇓v) (⟨∙⟩⇓≤ η ⇓w)
   ⟦⟧⇓≤ η ƛ⇓ = ƛ⇓
-  ⟦⟧⇓≤ η ([]⇓ ⇓ρ′ ⇓u) = []⇓ (⟦⟧*⇓≤ η ⇓ρ′) (⟦⟧⇓≤ η ⇓u)
+  ⟦⟧⇓≤ η ([]⇓ ⇓θ ⇓u) = []⇓ (⟦⟧*⇓≤ η ⇓θ) (⟦⟧⇓≤ η ⇓u)
 
-  ⟦⟧*⇓≤ : ∀ {Β Γ Δ Δ′} (η : Β ≤ Γ) {σ : Sub Δ′ Δ} {ρ : Env Γ Δ′} {ρ′ : Env Γ Δ}
-    (⇓ρ′ : ⟦ σ ⟧* ρ ⇓ ρ′) →
-    ⟦ σ ⟧* env≤ η ρ ⇓ env≤ η ρ′
+  ⟦⟧*⇓≤ : ∀ {Β Γ Δ Δ′} (η : Β ≤ Γ) {σ : Sub Δ′ Δ} {ρ : Env Γ Δ′} {θ : Env Γ Δ}
+    (⇓θ : ⟦ σ ⟧* ρ ⇓ θ) →
+    ⟦ σ ⟧* env≤ η ρ ⇓ env≤ η θ
   ⟦⟧*⇓≤ η ι⇓ = ι⇓
-  ⟦⟧*⇓≤ η (⊙⇓ ⇓ρ′ ⇓ρ′′) = ⊙⇓ (⟦⟧*⇓≤ η ⇓ρ′) (⟦⟧*⇓≤ η ⇓ρ′′)
-  ⟦⟧*⇓≤ η (∷⇓ ⇓u ⇓ρ′) = ∷⇓ (⟦⟧⇓≤ η ⇓u) (⟦⟧*⇓≤ η ⇓ρ′)
+  ⟦⟧*⇓≤ η (⊙⇓ ⇓θ₁ ⇓θ₂) = ⊙⇓ (⟦⟧*⇓≤ η ⇓θ₁) (⟦⟧*⇓≤ η ⇓θ₂)
+  ⟦⟧*⇓≤ η (∷⇓ ⇓u ⇓θ) = ∷⇓ (⟦⟧⇓≤ η ⇓u) (⟦⟧*⇓≤ η ⇓θ)
   ⟦⟧*⇓≤ η ↑⇓ = ↑⇓
 
   ⟨∙⟩⇓≤ : ∀ {α β Β Γ} (η : Β ≤ Γ)
@@ -1196,60 +1202,64 @@ mutual
           ≈⟨ ≈v ⟩
         embVal v
         ∎
-  all-scv (t [ σ ]) ρ r with all-sce σ ρ r
-  ... | ρ′ , r′ , ⇓ρ′ , ≈≈ρ′ with all-scv t ρ′ r′
+  all-scv (t [ σ ]) ρ r
+    with all-sce σ ρ r
+  ... | θ′ , r′ , ⇓θ′ , ≈≈θ′
+    with all-scv t θ′ r′
   ... | u , p , ⇓u , ≈u =
     u , p , ⇓u′ , ≈u′
     where
     open ≈-Reasoning
     ⇓u′ : ⟦ t [ σ ] ⟧ ρ ⇓ u
-    ⇓u′ = []⇓ ⇓ρ′ ⇓u
+    ⇓u′ = []⇓ ⇓θ′ ⇓u
     ≈u′ : t [ σ ] [ embEnv ρ ] ≈ embVal u
     ≈u′ = begin
       t [ σ ] [ embEnv ρ ]
         ≈⟨ ≈sym ≈comp ⟩
       t [ σ ⊙ embEnv ρ ]
-        ≈⟨ ≈cong[] ≈refl ≈≈ρ′ ⟩
-      t [ embEnv ρ′ ]
+        ≈⟨ ≈cong[] ≈refl ≈≈θ′ ⟩
+      t [ embEnv θ′ ]
         ≈⟨ ≈u ⟩
       embVal u
       ∎
 
   all-sce : ∀ {Β Γ Δ} (σ : Sub Γ Δ) (ρ : Env Β Γ) (r : SCE ρ) →
-    ∃ λ ρ′ → SCE ρ′ × ⟦ σ ⟧* ρ ⇓ ρ′ × (σ ⊙ embEnv ρ ≈≈ embEnv ρ′)
+    ∃ λ θ → SCE θ × ⟦ σ ⟧* ρ ⇓ θ × (σ ⊙ embEnv ρ ≈≈ embEnv θ)
 
   all-sce ı ρ r =
     ρ , r , ι⇓ , ≈≈idl
-  all-sce (σ ⊙ σ′) ρ r with all-sce σ′ ρ r
-  ... | ρ′ , r′ , ⇓ρ′ , ≈≈ρ′ with all-sce σ ρ′ r′
-  ... | ρ′′ , r′′ , ⇓ρ′′ , ≈≈ρ′′ =
-    ρ′′ , r′′ , ⊙⇓ ⇓ρ′ ⇓ρ′′ , ≈≈ρ′′′
+  all-sce (σ ⊙ σ′) ρ r
+    with all-sce σ′ ρ r
+  ... | θ′ , r′ , ⇓θ′ , ≈≈θ′
+    with all-sce σ θ′ r′
+  ... | θ′′ , r′′ , ⇓θ′′ , ≈≈θ′′ =
+    θ′′ , r′′ , ⊙⇓ ⇓θ′ ⇓θ′′ , ≈≈θ′′′
     where
     open ≈≈-Reasoning
-    ≈≈ρ′′′ : (σ ⊙ σ′) ⊙ embEnv ρ ≈≈ embEnv ρ′′
-    ≈≈ρ′′′ = begin
+    ≈≈θ′′′ : (σ ⊙ σ′) ⊙ embEnv ρ ≈≈ embEnv θ′′
+    ≈≈θ′′′ = begin
       (σ ⊙ σ′) ⊙ embEnv ρ
         ≈⟨ ≈≈assoc ⟩
       σ ⊙ (σ′ ⊙ embEnv ρ)
-        ≈⟨ ≈≈cong⊙ ≈≈refl ≈≈ρ′ ⟩
-      σ ⊙ embEnv ρ′
-        ≈⟨ ≈≈ρ′′ ⟩
-      embEnv ρ′′
+        ≈⟨ ≈≈cong⊙ ≈≈refl ≈≈θ′ ⟩
+      σ ⊙ embEnv θ′
+        ≈⟨ ≈≈θ′′ ⟩
+      embEnv θ′′
       ∎
   all-sce (t ∷ σ) ρ r with all-scv t ρ r | all-sce σ ρ r
-  ... | u , p , ⇓u , ≈u | ρ′ , r′ , ⇓ρ′ , ≈≈ρ′ =
-    u ∷ ρ′ , (p ∷ r′) , ∷⇓ ⇓u ⇓ρ′ , ≈≈u∷ρ′
+  ... | u , p , ⇓u , ≈u | θ′ , r′ , ⇓θ′ , ≈≈θ′ =
+    u ∷ θ′ , (p ∷ r′) , ∷⇓ ⇓u ⇓θ′ , ≈≈u∷θ′
     where
     open ≈≈-Reasoning
-    ≈≈u∷ρ′ : (t ∷ σ) ⊙ embEnv ρ ≈≈ embVal u ∷ embEnv ρ′
-    ≈≈u∷ρ′ = begin
+    ≈≈u∷θ′ : (t ∷ σ) ⊙ embEnv ρ ≈≈ embVal u ∷ embEnv θ′
+    ≈≈u∷θ′ = begin
       (t ∷ σ) ⊙ embEnv ρ
         ≈⟨ ≈≈cons ⟩
       t [ embEnv ρ ] ∷ (σ ⊙ embEnv ρ)
         ≈⟨ ≈≈cong∷ ≈u ≈≈refl ⟩
       embVal u ∷ (σ ⊙ embEnv ρ)
-        ≈⟨ ≈≈cong∷ ≈refl ≈≈ρ′ ⟩
-      embVal u ∷ embEnv ρ′
+        ≈⟨ ≈≈cong∷ ≈refl ≈≈θ′ ⟩
+      embVal u ∷ embEnv θ′
       ∎
   all-sce ↑ (u ∷ ρ) (p ∷ r) =
     ρ , r , ↑⇓ , ≈≈wk
@@ -1282,20 +1292,25 @@ var≤-suc : ∀ {α γ Β Γ} (η : Β ≤ γ ∷ Γ) (x : Var Γ α) →
   var≤ η (suc x) ≡ var≤ (η ● wk) x
 var≤-suc (≤weak η) x =
   cong suc (var≤-suc η x)
-var≤-suc (≤lift η) x = -- rewrite η●≤id η =
-  cong (λ η′ → suc (var≤ η′ x)) (sym $ η●≤id η)
+var≤-suc (≤lift η) x
+  rewrite η ● ≤id ≡ η ∋ η●≤id η
+  = refl
 
 ⟦embVar⟧≤⇓ : ∀ {α Β Γ} (x : Var Γ α) (η : Β ≤ Γ) →
   ⟦ embVar x ⟧ (env≤ η id-env) ⇓ ne (var (var≤ η x))
 ⟦embVar⟧≤⇓ zero η = ø⇓
-⟦embVar⟧≤⇓ (suc x) η with ⟦embVar⟧≤⇓ x (η ● wk)
-... | p rewrite sym $ env≤∘ η wk id-env | sym $ var≤-suc η x  =
-  []⇓ ↑⇓ p
+⟦embVar⟧≤⇓ (suc x) η
+  rewrite env≤ η (wkEnv id-env) ≡ env≤ (η ● wk) id-env ∋ env≤∘ η wk id-env |
+          var≤ η (suc x) ≡ var≤ (η ● ≤weak ≤id) x ∋ var≤-suc η x
+  = []⇓ ↑⇓ (⟦embVar⟧≤⇓ x (η ● wk))
 
 ⟦embVar⟧⇓ : ∀ {α Γ} (x : Var Γ α) →
   ⟦ embVar x ⟧ id-env ⇓ ne (var x)
-⟦embVar⟧⇓ {α} {Γ} x with ⟦embVar⟧≤⇓ x ≤id
-... | r rewrite env≤∘≤id {Γ} {Γ} id-env | var≤∘≤id x
+⟦embVar⟧⇓ {α} {Γ} x
+  with ⟦embVar⟧≤⇓ x ≤id
+... | r
+  rewrite env≤ ≤id id-env ≡ id-env ∋ env≤∘≤id {Γ} {Γ} id-env |
+          var≤ ≤id x ≡ x ∋ var≤∘≤id x
   = r
 
 mutual
@@ -1337,13 +1352,6 @@ mutual
     app us u , ∙⇓ ⇓us ⇓u ne⇓ , app⇓ ⇓ns ⇓n
 
 {-
-postulate
-
-  ⟦⟧⇓-det : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) u u′ →
-    ⟦ t ⟧ ρ ⇓ u → ⟦ t ⟧ ρ ⇓ u′ → u ≡ u′
-
--- nf (embNf n) ≡ n
-
 stable≡ : ∀ {α Γ} (n : Nf Γ α) → nf (embNf n) ≡ n
 stable≡ n with all-scv (embNf n) id-env sce-id-env
 ... | u , ⇓u , ≈u , p with all-qval u p

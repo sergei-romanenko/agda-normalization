@@ -2,12 +2,6 @@ module STLC-Tait-OPE-sound-rec where
 
 open import Data.List as List
   hiding ([_])
-{-
-open import Data.List.Any
-  using (Any; here; there; module Membership-≡)
-open import Data.List.Properties
-  using ()
--}
 open import Data.Empty
 open import Data.Unit
   using (⊤; tt)
@@ -163,9 +157,9 @@ mutual
   ~sym {α ⇒ β} p η u₁~u₂ =
     ~sym (p η (~sym u₁~u₂))
 
-  ~~sym :  ∀ {Γ Δ} {ρ ρ′ : Env Γ Δ} → ρ ~~ ρ′ → ρ′ ~~ ρ
+  ~~sym :  ∀ {Γ Δ} {ρ₁ ρ₂ : Env Γ Δ} → ρ₁ ~~ ρ₂ → ρ₂ ~~ ρ₁
   ~~sym [] = []
-  ~~sym (u~u′ ∷ ρ~~ρ′) = ~sym u~u′ ∷ ~~sym ρ~~ρ′
+  ~~sym (u₁~u₂ ∷ ρ₁~~ρ₂) = ~sym u₁~u₂ ∷ ~~sym ρ₁~~ρ₂
 
 
 mutual
@@ -207,14 +201,10 @@ mutual
   qNeVal (neVal≤ η us₂)
   ∎
   where open ≡-Reasoning
-~≤ {α ⇒ β} η {u₁} {u₂} p {B} η′ {v₁} {v₂} v₁~v₂ = p2
-  where
-  p1 : val≤ (η′ ● η) u₁ ⟨∙⟩ v₁ ~ val≤ (η′ ● η) u₂ ⟨∙⟩ v₂
-  p1 = p (η′ ● η) v₁~v₂
-
-  p2 : val≤ η′ (val≤ η u₁) ⟨∙⟩ v₁ ~ val≤ η′ (val≤ η u₂) ⟨∙⟩ v₂
-  p2 = subst₂ _~_ (cong (flip _⟨∙⟩_ v₁) (sym $ val≤∘ η′ η u₁))
-                  (cong (flip _⟨∙⟩_ v₂) (sym $ val≤∘ η′ η u₂)) p1
+~≤ {α ⇒ β} η {u₁} {u₂} p {B} η′ {v₁} {v₂} v₁~v₂
+  rewrite val≤ η′ (val≤ η u₁) ≡ val≤ (η′ ● η) u₁ ∋ val≤∘ η′ η u₁ |
+          val≤ η′ (val≤ η u₂) ≡ val≤ (η′ ● η) u₂ ∋ val≤∘ η′ η u₂
+  = p (η′ ● η) v₁~v₂
 
 ~~≤ : ∀ {Β Γ Δ} (η : Β ≤ Γ) {ρ₁ ρ₂ : Env Γ Δ} → ρ₁ ~~ ρ₂ → 
         env≤ η ρ₁ ~~ env≤ η ρ₂
@@ -229,25 +219,28 @@ mutual
     ⟦ t ⟧ ρ₁ ~ ⟦ t ⟧ ρ₂
 
   ~cong⟦≡⟧ ø (u₁~u₂ ∷ ρ₁~~ρ₂) = u₁~u₂
-  ~cong⟦≡⟧ (t ∙ t′) {ρ₁} {ρ₂} ρ₁~~ρ₂ = q
-    where
-    t′ρ₁~t′ρ₂ : ⟦ t′ ⟧ ρ₁ ~ ⟦ t′ ⟧ ρ₂
-    t′ρ₁~t′ρ₂ = ~cong⟦≡⟧ t′ ρ₁~~ρ₂
-    p : val≤ ≤id (⟦ t ⟧ ρ₁) ⟨∙⟩ ⟦ t′ ⟧ ρ₁ ~ val≤ ≤id (⟦ t ⟧ ρ₂) ⟨∙⟩ ⟦ t′ ⟧ ρ₂
-    p = ~cong⟦≡⟧ t ρ₁~~ρ₂ ≤id t′ρ₁~t′ρ₂
-    q : ⟦ t ⟧ ρ₁ ⟨∙⟩ ⟦ t′ ⟧ ρ₁ ~ ⟦ t ⟧ ρ₂ ⟨∙⟩ ⟦ t′ ⟧ ρ₂
-    q = subst₂ (λ u u′ → u ⟨∙⟩ ⟦ t′ ⟧ ρ₁ ~ u′ ⟨∙⟩ ⟦ t′ ⟧ ρ₂)
-                (val≤∘≤id (⟦ t ⟧ ρ₁)) (val≤∘≤id (⟦ t ⟧ ρ₂)) p
-  ~cong⟦≡⟧ (ƛ t) ρ₁~~ρ₂ η v₁~v₂ = ~cong⟦≡⟧ t (v₁~v₂ ∷ ~~≤ η ρ₁~~ρ₂)
-  ~cong⟦≡⟧ (t [ σ ]) ρ₁~~ρ₂ = ~cong⟦≡⟧ t (~~cong⟦≡⟧* σ ρ₁~~ρ₂)
+  ~cong⟦≡⟧ (t ∙ t′) {ρ₁} {ρ₂} ρ₁~~ρ₂
+    with ~cong⟦≡⟧ t ρ₁~~ρ₂ | ~cong⟦≡⟧ t′ ρ₁~~ρ₂
+  ... | u₁~u₂ | v₁~v₂
+    with u₁~u₂ ≤id v₁~v₂
+  ... | uv₁~uv₂
+    rewrite val≤ ≤id (⟦ t ⟧ ρ₁) ≡ ⟦ t ⟧ ρ₁ ∋ val≤∘≤id _ |
+            val≤ ≤id (⟦ t ⟧ ρ₂) ≡ ⟦ t ⟧ ρ₂ ∋ val≤∘≤id _
+    = uv₁~uv₂
+  ~cong⟦≡⟧ (ƛ t) ρ₁~~ρ₂ η v₁~v₂ =
+    ~cong⟦≡⟧ t (v₁~v₂ ∷ ~~≤ η ρ₁~~ρ₂)
+  ~cong⟦≡⟧ (t [ σ ]) ρ₁~~ρ₂ =
+    ~cong⟦≡⟧ t (~~cong⟦≡⟧* σ ρ₁~~ρ₂)
 
   ~~cong⟦≡⟧* : ∀ {Γ Δ Δ′} (σ : Sub Δ Δ′) {ρ₁ ρ₂ : Env Γ Δ} →
     ρ₁ ~~ ρ₂ →
     ⟦ σ ⟧* ρ₁ ~~ ⟦ σ ⟧* ρ₂
 
   ~~cong⟦≡⟧* ı ρ₁~~ρ₂ = ρ₁~~ρ₂
-  ~~cong⟦≡⟧* (σ ⊙ σ′) ρ₁~~ρ₂ = ~~cong⟦≡⟧* σ (~~cong⟦≡⟧* σ′ ρ₁~~ρ₂)
-  ~~cong⟦≡⟧* (t ∷ σ) ρ₁~~ρ₂ = ~cong⟦≡⟧ t ρ₁~~ρ₂ ∷ ~~cong⟦≡⟧* σ ρ₁~~ρ₂
+  ~~cong⟦≡⟧* (σ ⊙ σ′) ρ₁~~ρ₂ =
+    ~~cong⟦≡⟧* σ (~~cong⟦≡⟧* σ′ ρ₁~~ρ₂)
+  ~~cong⟦≡⟧* (t ∷ σ) ρ₁~~ρ₂ =
+    ~cong⟦≡⟧ t ρ₁~~ρ₂ ∷ ~~cong⟦≡⟧* σ ρ₁~~ρ₂
   ~~cong⟦≡⟧* ↑ (u₁~u₂ ∷ ρ₁~~ρ₂) = ρ₁~~ρ₂
 
 
@@ -269,7 +262,8 @@ mutual
   ... | v₁~v₂
     with ~cong⟦⟧ f₁≈f₂ ρ₁~~ρ₂ ≤id v₁~v₂
   ... | w₁~w₂
-    rewrite val≤∘≤id (⟦ f₁ ⟧ ρ₁) | val≤∘≤id (⟦ f₂ ⟧ ρ₂)
+    rewrite val≤ ≤id (⟦ f₁ ⟧ ρ₁) ≡ ⟦ f₁ ⟧ ρ₁ ∋ val≤∘≤id _ |
+            val≤ ≤id (⟦ f₂ ⟧ ρ₂) ≡ ⟦ f₂ ⟧ ρ₂ ∋ val≤∘≤id _
     = w₁~w₂
   ~cong⟦⟧ (≈cong[] t₁≈t₂ σ₁≈≈σ₂) ρ₁~~ρ₂ =
     ~cong⟦⟧ t₁≈t₂ (~~cong⟦⟧* σ₁≈≈σ₂ ρ₁~~ρ₂)
@@ -286,7 +280,7 @@ mutual
   ... | θ₁~θ₂
     with ~cong⟦≡⟧ t (v₁~v₂ ∷ ~~≤ η θ₁~θ₂)
   ... | w₁~w₂
-    rewrite ⟦⟧*∘≤ η σ ρ₂
+    rewrite ⟦ σ ⟧* env≤ η ρ₂ ≡ env≤ η (⟦ σ ⟧* ρ₂) ∋ ⟦⟧*∘≤ η σ ρ₂
     = w₁~w₂
   ~cong⟦⟧ {t₁ = (t ∙ t′) [ σ ]} ≈app {ρ₁} {ρ₂} ρ₁~~ρ₂
     with ~~cong⟦≡⟧* σ ρ₁~~ρ₂
@@ -295,15 +289,17 @@ mutual
   ... | v₁~v₂
     with ~cong⟦≡⟧ t θ₁~~θ₂ ≤id v₁~v₂
   ... | w₁~w₂
-    rewrite val≤∘≤id (⟦ t ⟧ (⟦ σ ⟧* ρ₁)) | val≤∘≤id (⟦ t ⟧ (⟦ σ ⟧* ρ₂))
+    rewrite val≤ ≤id (⟦ t ⟧ (⟦ σ ⟧* ρ₁)) ≡ ⟦ t ⟧ (⟦ σ ⟧* ρ₁) ∋ val≤∘≤id _ |
+            val≤ ≤id (⟦ t ⟧ (⟦ σ ⟧* ρ₂)) ≡ ⟦ t ⟧ (⟦ σ ⟧* ρ₂) ∋ val≤∘≤id _
     = w₁~w₂
   ~cong⟦⟧ {t₁ = (ƛ t) [ σ ] ∙ t′} ≈βσ {ρ₁} {ρ₂} ρ₁~~ρ₂ =
     ~cong⟦≡⟧ t (~cong⟦≡⟧ t′ ρ₁~~ρ₂ ∷ ~~cong⟦≡⟧* σ ρ₁~~ρ₂)
   ~cong⟦⟧ {t₁ = t} ≈η {ρ₁} {ρ₂} ρ₁~~ρ₂ {Β} η {v₁} {v₂} v₁~v₂
     with ~cong⟦≡⟧ t (~~≤ η ρ₁~~ρ₂) ≤id v₁~v₂
   ... | w₁~w₂
-    rewrite val≤∘≤id (⟦ t ⟧ env≤ η ρ₁) | val≤∘≤id (⟦ t ⟧ env≤ η ρ₂) |
-            ⟦⟧∘≤ η t ρ₁
+    rewrite val≤ ≤id (⟦ t ⟧ env≤ η ρ₁) ≡ ⟦ t ⟧ env≤ η ρ₁ ∋ val≤∘≤id _ |
+            val≤ ≤id (⟦ t ⟧ env≤ η ρ₂) ≡ ⟦ t ⟧ env≤ η ρ₂ ∋ val≤∘≤id _ |
+            ⟦ t ⟧ env≤ η ρ₁ ≡ val≤ η (⟦ t ⟧ ρ₁) ∋ ⟦⟧∘≤ η t ρ₁
     = w₁~w₂
 
   ~~cong⟦⟧* : ∀ {Γ Δ Δ′}

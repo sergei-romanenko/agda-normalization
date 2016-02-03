@@ -29,32 +29,32 @@ open import STLC-Tait-OPE
 
 mutual
 
-  ⟦⟧⇓-det : ∀ {α Γ Δ} {t : Tm Δ α} {ρ′ ρ′′ : Env Γ Δ} {u₁ u₂} →
-    (⇓u₁ : ⟦ t ⟧ ρ′ ⇓ u₁) (⇓u₂ : ⟦ t ⟧ ρ′′ ⇓ u₂)
-    (ρ′≡ρ′′ : ρ′ ≡ ρ′′) → u₁ ≡ u₂
+  ⟦⟧⇓-det : ∀ {α Γ Δ} {t : Tm Δ α} {ρ₁ ρ₂ : Env Γ Δ} {u₁ u₂} →
+    (⇓u₁ : ⟦ t ⟧ ρ₁ ⇓ u₁) (⇓u₂ : ⟦ t ⟧ ρ₂ ⇓ u₂)
+    (ρ₁≡ρ₂ : ρ₁ ≡ ρ₂) → u₁ ≡ u₂
 
   ⟦⟧⇓-det ø⇓ ø⇓ refl = refl
-  ⟦⟧⇓-det (∙⇓ ⇓u₁ ⇓v₁ ⇓w₁) (∙⇓ ⇓u₂ ⇓v₂ ⇓w₂) ρ′≡ρ′′ =
-    ⟨∙⟩⇓-det ⇓w₁ ⇓w₂ (⟦⟧⇓-det ⇓u₁ ⇓u₂ ρ′≡ρ′′) (⟦⟧⇓-det ⇓v₁ ⇓v₂ ρ′≡ρ′′)
+  ⟦⟧⇓-det (∙⇓ ⇓u₁ ⇓v₁ ⇓w₁) (∙⇓ ⇓u₂ ⇓v₂ ⇓w₂) ρ₁≡ρ₂ =
+    ⟨∙⟩⇓-det ⇓w₁ ⇓w₂ (⟦⟧⇓-det ⇓u₁ ⇓u₂ ρ₁≡ρ₂) (⟦⟧⇓-det ⇓v₁ ⇓v₂ ρ₁≡ρ₂)
   ⟦⟧⇓-det ƛ⇓ ƛ⇓ refl = refl
-  ⟦⟧⇓-det ([]⇓ ⇓ρ₁ ⇓u₁) ([]⇓ ⇓ρ₂ ⇓u₂) ρ′≡ρ′′ =
-    ⟦⟧⇓-det ⇓u₁ ⇓u₂ (⟦⟧*⇓-det ⇓ρ₁ ⇓ρ₂ ρ′≡ρ′′)
+  ⟦⟧⇓-det ([]⇓ ⇓ρ₁ ⇓u₁) ([]⇓ ⇓ρ₂ ⇓u₂) ρ₁≡ρ₂ =
+    ⟦⟧⇓-det ⇓u₁ ⇓u₂ (⟦⟧*⇓-det ⇓ρ₁ ⇓ρ₂ ρ₁≡ρ₂)
 
-  ⟦⟧*⇓-det : ∀ {Γ Δ Δ′} {σ : Sub Δ Δ′} {ρ′ ρ′′ : Env Γ Δ} {ρ₁ ρ₂}
-    (⇓ρ₁ : ⟦ σ ⟧* ρ′ ⇓ ρ₁) (⇓ρ₂ : ⟦ σ ⟧* ρ′′ ⇓ ρ₂)
-    (ρ′≡ρ′′ : ρ′ ≡ ρ′′) → ρ₁ ≡ ρ₂
+  ⟦⟧*⇓-det : ∀ {Γ Δ Δ′} {σ : Sub Δ Δ′} {ρ₁ ρ₂ : Env Γ Δ} {θ₁ θ₂}
+    (⇓θ₁ : ⟦ σ ⟧* ρ₁ ⇓ θ₁) (⇓θ₂ : ⟦ σ ⟧* ρ₂ ⇓ θ₂)
+    (ρ₁≡ρ₂ : ρ₁ ≡ ρ₂) → θ₁ ≡ θ₂
 
-  ⟦⟧*⇓-det ι⇓ ι⇓ ρ′≡ρ′′ = ρ′≡ρ′′
-  ⟦⟧*⇓-det (⊙⇓ ⇓ρ₁ ⇓ρ′₁) (⊙⇓ ⇓ρ₂ ⇓ρ′₂) ρ′≡ρ′′ =
-    ⟦⟧*⇓-det ⇓ρ′₁ ⇓ρ′₂ (⟦⟧*⇓-det ⇓ρ₁ ⇓ρ₂ ρ′≡ρ′′)
-  ⟦⟧*⇓-det (∷⇓ ⇓u₁ ⇓ρ₁) (∷⇓ ⇓u₂ ⇓ρ₂) ρ′≡ρ′′ =
-    cong₂ _∷_ (⟦⟧⇓-det ⇓u₁ ⇓u₂ ρ′≡ρ′′) (⟦⟧*⇓-det ⇓ρ₁ ⇓ρ₂ ρ′≡ρ′′)
+  ⟦⟧*⇓-det ι⇓ ι⇓ ρ₁≡ρ₂ = ρ₁≡ρ₂
+  ⟦⟧*⇓-det (⊙⇓ ⇓θ₁ ⇓θ₂) (⊙⇓ ⇓φ₁ ⇓φ₂) ρ₁≡ρ₂ =
+    ⟦⟧*⇓-det ⇓θ₂ ⇓φ₂ (⟦⟧*⇓-det ⇓θ₁ ⇓φ₁ ρ₁≡ρ₂)
+  ⟦⟧*⇓-det (∷⇓ ⇓u₁ ⇓θ₁) (∷⇓ ⇓u₂ ⇓θ₂) ρ₁≡ρ₂ =
+    cong₂ _∷_ (⟦⟧⇓-det ⇓u₁ ⇓u₂ ρ₁≡ρ₂) (⟦⟧*⇓-det ⇓θ₁ ⇓θ₂ ρ₁≡ρ₂)
   ⟦⟧*⇓-det ↑⇓ ↑⇓ refl = refl
 
 
-  ⟨∙⟩⇓-det : ∀ {α β Γ} {u′ u′′ : Val Γ (α ⇒ β)} {v′ v′′ : Val Γ α} {w₁ w₂}
-    (⇓w₁ : u′ ⟨∙⟩ v′ ⇓ w₁) (⇓w₂ : u′′ ⟨∙⟩ v′′ ⇓ w₂)
-    (u′≡u′′ : u′ ≡ u′′) (v′≡v′′ : v′ ≡ v′′) → w₁ ≡ w₂
+  ⟨∙⟩⇓-det : ∀ {α β Γ} {u₁ u₂ : Val Γ (α ⇒ β)} {v₁ v₂ : Val Γ α} {w₁ w₂}
+    (⇓w₁ : u₁ ⟨∙⟩ v₁ ⇓ w₁) (⇓w₂ : u₂ ⟨∙⟩ v₂ ⇓ w₂)
+    (u₁≡u₂ : u₁ ≡ u₂) (v₁≡v₂ : v₁ ≡ v₂) → w₁ ≡ w₂
 
   ⟨∙⟩⇓-det ne⇓ ne⇓ refl refl = refl
   ⟨∙⟩⇓-det (lam⇓ ⇓w₁) (lam⇓ ⇓w₂) refl refl =
@@ -140,15 +140,13 @@ mutual
   ~trans {⋆} {Γ} {ne us₁} {ne us₂} {ne us₃}
     (ns₁ , ns′ , ns₁≡ns′ , ⇓ns₁ , ⇓ns′)
     (ns′′ , ns₃ , ns′′≡ns₃ , ⇓ns′′ , ⇓ns₃)
-    with qNeVal⇓-det ⇓ns′ ⇓ns′′ refl
-  ... | ns′≡ns′′ =
-    ns₁ , ns₃ , trans ns₁≡ns′ (trans ns′≡ns′′ ns′′≡ns₃) , ⇓ns₁ , ⇓ns₃
+    rewrite ns′ ≡ ns′′ ∋ qNeVal⇓-det ⇓ns′ ⇓ns′′ refl
+    = ns₁ , ns₃ , trans ns₁≡ns′ ns′′≡ns₃ , ⇓ns₁ , ⇓ns₃
   ~trans {α ⇒ β} p q {Β} η {v₁} {v₂} v₁~v₂
     with p η (~refl′ v₁~v₂) | q η v₁~v₂
   ... | w₁ , w′ , w₁~w′ , ⇓w₁ , ⇓w′ | w′′ , w₂ , w′′~w₂ , ⇓w′′ , ⇓w₂
-    with ⟨∙⟩⇓-det ⇓w′ ⇓w′′ refl refl
-  ... | w′≡w′′
-    = w₁ , w₂ , ~trans (subst (_~_ w₁) w′≡w′′ w₁~w′) w′′~w₂ , ⇓w₁ , ⇓w₂
+    rewrite w′ ≡ w′′ ∋ ⟨∙⟩⇓-det ⇓w′ ⇓w′′ refl refl
+    = w₁ , w₂ , ~trans w₁~w′ w′′~w₂ , ⇓w₁ , ⇓w₂
 
   ~~trans : ∀ {Γ Δ} {ρ₁ ρ₂ ρ₃ : Env Γ Δ} →
     ρ₁ ~~ ρ₂ → ρ₂ ~~ ρ₃ → ρ₁ ~~ ρ₃
@@ -174,13 +172,10 @@ mutual
     qNeVal≤ η ⇓ns₁ , qNeVal≤ η ⇓ns₂
 ~≤ {α ⇒ β} η {u₁} {u₂} p {B} η′ {v₁} {v₂} v₁~v₂
   with p (η′ ● η) v₁~v₂
-... | w₁ , w₂ , w₁~w₂ , ⇓w₁ , ⇓w₂ =
-  w₁ , w₂ , w₁~w₂ , h₁ ⇓w₁ , h₂ ⇓w₂
-  where
-  h₁ : val≤ (η′ ● η) u₁ ⟨∙⟩ v₁ ⇓ w₁ → val≤ η′ (val≤ η u₁) ⟨∙⟩ v₁ ⇓ w₁
-  h₁ = subst (λ u → u ⟨∙⟩ v₁ ⇓ w₁) (sym $ val≤∘ η′ η u₁)
-  h₂ : val≤ (η′ ● η) u₂ ⟨∙⟩ v₂ ⇓ w₂ → val≤ η′ (val≤ η u₂) ⟨∙⟩ v₂ ⇓ w₂
-  h₂ = subst (λ u → u ⟨∙⟩ v₂ ⇓ w₂) (sym $ val≤∘ η′ η u₂)
+... | w₁ , w₂ , w₁~w₂ , ⇓w₁ , ⇓w₂
+  rewrite val≤ η′ (val≤ η u₁) ≡ val≤ (η′ ● η) u₁ ∋ val≤∘ η′ η u₁ |
+          val≤ η′ (val≤ η u₂) ≡ val≤ (η′ ● η) u₂ ∋ val≤∘ η′ η u₂
+  = w₁ , w₂ , w₁~w₂ , ⇓w₁ , ⇓w₂
 
 ~~≤ : ∀ {Β Γ Δ} (η : Β ≤ Γ) {ρ₁ ρ₂ : Env Γ Δ} → ρ₁ ~~ ρ₂ → 
         env≤ η ρ₁ ~~ env≤ η ρ₂
@@ -201,21 +196,14 @@ mutual
 
   ~cong⟦≡⟧ ø {u₁ ∷ ρ₁} {u₂ ∷ ρ₂} (u₁~u₂ ∷ ρ₁~~ρ₂) =
     u₁ , u₂ , u₁~u₂ , ø⇓ , ø⇓
-  ~cong⟦≡⟧ (t ∙ t′) {ρ₁} {ρ₂} ρ₁~~ρ₂
-    with ~cong⟦≡⟧ t′ ρ₁~~ρ₂
-  ... | u₁ , u₂ , u₁~u₂ , ⇓u₁ , ⇓u₂
-    with ~cong⟦≡⟧ t ρ₁~~ρ₂
-  ... | f₁ , f₂ , f₁~f₂ , ⇓f₁ , ⇓f₂
-    with f₁~f₂ ≤id u₁~u₂
+  ~cong⟦≡⟧ (t ∙ t′) ρ₁~~ρ₂
+    with ~cong⟦≡⟧ t ρ₁~~ρ₂ | ~cong⟦≡⟧ t′ ρ₁~~ρ₂
+  ... | u₁ , u₂ , u₁~u₂ , ⇓u₁ , ⇓u₂ | v₁ , v₂ , v₁~v₂ , ⇓v₁ , ⇓v₂
+    with u₁~u₂ ≤id v₁~v₂
   ... | w₁ , w₂ , w₁~w₂ , ⇓w₁ , ⇓w₂
-    = w₁ , w₂ , w₁~w₂ ,
-      ∙⇓ ⇓f′ ⇓u₁ ⇓w₁ ,
-      ∙⇓ ⇓f′′ ⇓u₂ ⇓w₂
-    where
-    ⇓f′ : ⟦ t ⟧ ρ₁ ⇓ val≤ ≤id f₁
-    ⇓f′ = subst (λ f → ⟦ t ⟧ ρ₁ ⇓ f) (sym $ val≤∘≤id f₁) ⇓f₁
-    ⇓f′′ : ⟦ t ⟧ ρ₂ ⇓ val≤ ≤id f₂
-    ⇓f′′ = subst (λ f → ⟦ t ⟧ ρ₂ ⇓ f) (sym $ val≤∘≤id f₂) ⇓f₂
+    rewrite val≤ ≤id u₁ ≡ u₁ ∋ val≤∘≤id u₁ |
+            val≤ ≤id u₂ ≡ u₂ ∋ val≤∘≤id u₂
+    = w₁ , w₂ , w₁~w₂ , ∙⇓ ⇓u₁ ⇓v₁ ⇓w₁ , ∙⇓ ⇓u₂ ⇓v₂ ⇓w₂
   ~cong⟦≡⟧ {α ⇒ β} {Γ} (ƛ t) {ρ₁} {ρ₂} ρ₁~~ρ₂ =
     lam t ρ₁ , lam t ρ₂ , h , ƛ⇓ , ƛ⇓
     where
@@ -223,16 +211,16 @@ mutual
           ∃₂ (λ w₁ w₂ → w₁ ~ w₂
             × lam t (env≤ η ρ₁) ⟨∙⟩ u₁ ⇓ w₁
             × lam t (env≤ η ρ₂) ⟨∙⟩ u₂ ⇓ w₂)
-    h {Β} η {u₁} {u₂} u₁~u₂
+    h {Β} η u₁~u₂
       with ~cong⟦≡⟧ t (u₁~u₂ ∷ ~~≤ η ρ₁~~ρ₂)
     ... | v₁ , v₂ , v₁~v₂ , ⇓v₁ , ⇓v₂
       = v₁ , v₂ , v₁~v₂ , lam⇓ ⇓v₁ , lam⇓ ⇓v₂
   ~cong⟦≡⟧ (t [ σ ]) ρ₁~~ρ₂
     with ~~cong⟦≡⟧* σ ρ₁~~ρ₂
-  ... | ρ′ , ρ′′ , ρ′~~ρ′′ , ⇓ρ′ , ⇓ρ′′
-    with ~cong⟦≡⟧ t ρ′~~ρ′′
-  ... | u₁ , u₂ , u₁~u₂ , ⇓u₁ , ⇓u₂ =
-    u₁ , u₂ , u₁~u₂ , []⇓ ⇓ρ′ ⇓u₁ , []⇓ ⇓ρ′′ ⇓u₂
+  ... | θ₁ , θ₂ , θ₁~~θ₂ , ⇓θ₁ , ⇓θ₂
+    with ~cong⟦≡⟧ t θ₁~~θ₂
+  ... | u₁ , u₂ , u₁~u₂ , ⇓u₁ , ⇓u₂
+    = u₁ , u₂ , u₁~u₂ , []⇓ ⇓θ₁ ⇓u₁ , []⇓ ⇓θ₂ ⇓u₂
 
   ~~cong⟦≡⟧* : ∀ {Γ Δ Δ′} (σ : Sub Δ Δ′)
     {ρ₁ ρ₂ : Env Γ Δ} (ρ₁~~ρ₂ : ρ₁ ~~ ρ₂) →
@@ -242,14 +230,14 @@ mutual
     ρ₁ , ρ₂ , ρ₁~~ρ₂ , ι⇓ , ι⇓
   ~~cong⟦≡⟧* (σ ⊙ σ′) ρ₁~~ρ₂
     with ~~cong⟦≡⟧* σ′ ρ₁~~ρ₂
-  ... | ρ′ , ρ′′ , ρ′~ρ′′ , ⇓ρ′ , ⇓ρ′′
-    with ~~cong⟦≡⟧* σ ρ′~ρ′′
   ... | θ₁ , θ₂ , θ₁~θ₂ , ⇓θ₁ , ⇓θ₂
-    = θ₁ , θ₂ , θ₁~θ₂ , ⊙⇓ ⇓ρ′ ⇓θ₁ , ⊙⇓ ⇓ρ′′ ⇓θ₂
+    with ~~cong⟦≡⟧* σ θ₁~θ₂
+  ... | φ₁ , φ₂ , φ₁~φ₂ , ⇓φ₁ , ⇓φ₂
+    = φ₁ , φ₂ , φ₁~φ₂ , ⊙⇓ ⇓θ₁ ⇓φ₁ , ⊙⇓ ⇓θ₂ ⇓φ₂
   ~~cong⟦≡⟧* (t ∷ σ) ρ₁~~ρ₂
     with ~cong⟦≡⟧ t ρ₁~~ρ₂ | ~~cong⟦≡⟧* σ ρ₁~~ρ₂
-  ... | u₁ , u₂ , u₁~u₂ , ⇓u₁ , ⇓u₂ | θ₁ , θ₂ , θ₁~~θ₂ , ⇓θ₁ , ⇓θ₂ =
-    u₁ ∷ θ₁ , u₂ ∷ θ₂ , u₁~u₂ ∷ θ₁~~θ₂ , ∷⇓ ⇓u₁ ⇓θ₁ , ∷⇓ ⇓u₂ ⇓θ₂
+  ... | u₁ , u₂ , u₁~u₂ , ⇓u₁ , ⇓u₂ | θ₁ , θ₂ , θ₁~~θ₂ , ⇓θ₁ , ⇓θ₂
+    = u₁ ∷ θ₁ , u₂ ∷ θ₂ , u₁~u₂ ∷ θ₁~~θ₂ , ∷⇓ ⇓u₁ ⇓θ₁ , ∷⇓ ⇓u₂ ⇓θ₂
   ~~cong⟦≡⟧* ↑ {u₁ ∷ ρ₁} {u₂ ∷ ρ₂} (u₁~u₂ ∷ ρ₁~~ρ₂) =
     ρ₁ , ρ₂ , ρ₁~~ρ₂ , ↑⇓ , ↑⇓
 
@@ -277,16 +265,17 @@ mutual
   ~cong⟦⟧ (≈trans t₁≈t₂ t₂≈t₃) ρ₁~~ρ₂
     with ~cong⟦⟧ t₁≈t₂ (~~refl′ ρ₁~~ρ₂) | ~cong⟦⟧ t₂≈t₃ ρ₁~~ρ₂
   ... | u₁ , u₂ , u₁~u₂ , ⇓u₁ , ⇓u₂ | v₁ , v₂ , v₁~v₂ , ⇓v₁ , ⇓v₂
-    rewrite ⟦⟧⇓-det ⇓u₂ ⇓v₁ refl
+    rewrite u₂ ≡ v₁ ∋ ⟦⟧⇓-det ⇓u₂ ⇓v₁ refl
     = u₁ , v₂ , ~trans u₁~u₂ v₁~v₂ , ⇓u₁ , ⇓v₂
-  ~cong⟦⟧ {t₁ = f₁ ∙ t₁} {t₂ = f₂ ∙ t₂} (≈cong∙ f₁≈f₂ t₁≈t₂) {ρ₁} {ρ₂} ρ₁~~ρ₂
+  ~cong⟦⟧ {t₁ = f₁ ∙ t₁} {t₂ = f₂ ∙ t₂} (≈cong∙ f₁≈f₂ t₁≈t₂) ρ₁~~ρ₂
     with ~cong⟦⟧ f₁≈f₂ ρ₁~~ρ₂
   ... | u₁ , u₂ , u₁~u₂ , ⇓u₁ , ⇓u₂
     with ~cong⟦⟧ t₁≈t₂ ρ₁~~ρ₂
   ... | v₁ , v₂ , v₁~v₂ , ⇓v₁ , ⇓v₂
     with u₁~u₂ ≤id v₁~v₂
   ... | w₁ , w₂ , w₁~w₂ , ⇓w₁ , ⇓w₂
-    rewrite val≤∘≤id u₁ | val≤∘≤id u₂
+    rewrite val≤ ≤id u₁ ≡ u₁ ∋ val≤∘≤id u₁ |
+            val≤ ≤id u₂ ≡ u₂ ∋ val≤∘≤id u₂
     = w₁ , w₂ , w₁~w₂ , ∙⇓ ⇓u₁ ⇓v₁ ⇓w₁ , ∙⇓ ⇓u₂ ⇓v₂ ⇓w₂
   ~cong⟦⟧ (≈cong[] t₁≈t₂ σ₁≈≈σ₂) ρ₁~~ρ₂
     with ~~cong⟦⟧* σ₁≈≈σ₂ ρ₁~~ρ₂
@@ -319,16 +308,12 @@ mutual
   ... | u₁ , u₂ , u₁~u₂ , ⇓u₁ , ⇓u₂
     = u₁ , u₂ , u₁~u₂ ,
          []⇓ (⊙⇓ ⇓θ₁ ⇓φ₁) ⇓u₁ , []⇓ ⇓θ₂ ([]⇓ ⇓φ₂ ⇓u₂)
-  ~cong⟦⟧ {α ⇒ β} {Γ} {t₁ = .((ƛ t) [ σ ])} {t₂ = ƛ t [ ø ∷ (σ ⊙ ↑) ]}
-          ≈lam {ρ₁} {ρ₂} ρ₁~~ρ₂
+  ~cong⟦⟧ {α ⇒ β} {Γ} {t₁ = (ƛ t) [ σ ]} ≈lam {ρ₁} {ρ₂} ρ₁~~ρ₂
     with ~~cong⟦≡⟧* σ ρ₁~~ρ₂
   ... | θ₁ , θ₂ , θ₁~θ₂ , ⇓θ₁ , ⇓θ₂
     with ~cong⟦≡⟧ (ƛ t) θ₁~θ₂
   ... | u₁ , u₂ , u₁~u₂ , ⇓u₁ , ⇓u₂
-    = u₁ , lam (t [ ø ∷ (σ ⊙ ↑) ]) ρ₂ ,
-      (λ {Β} (η : Β ≤ Γ) {v₁ v₂ : Val Β α} (v₁~v₂ : v₁ ~ v₂) →
-        h η v₁~v₂) ,
-        []⇓ ⇓θ₁ ⇓u₁ , ƛ⇓
+    = u₁ , lam (t [ ø ∷ (σ ⊙ ↑) ]) ρ₂ , h , []⇓ ⇓θ₁ ⇓u₁ , ƛ⇓
     where
     h : ∀ {Β} (η : Β ≤ Γ) {v₁ v₂ : Val Β α} (v₁~v₂ : v₁ ~ v₂) →
           ∃₂ λ w₁ w₃ → w₁ ~ w₃
@@ -337,25 +322,17 @@ mutual
     h {Β} η {v₁} {v₂} v₁~v₂
       with ~cong⟦≡⟧ t (v₁~v₂ ∷ ~~≤ η θ₁~θ₂)
     ... | y₁ , y₂ , y₁~y₂ , ⇓y₁ , ⇓y₂
-      with u₁~u₂ {Β} η {v₁} {v₂} v₁~v₂
-    ... | z₁ , z₂ , z₁~z₂ , ⇓z₁ , ⇓z₂
-      = y₁ , y₂ , y₁~y₂ , q ,
-          lam⇓ ([]⇓ (∷⇓ ø⇓ (⊙⇓ ↑⇓ (⟦⟧*⇓≤ η ⇓θ₂))) ⇓y₂)
-      where
-      p : lam t (env≤ η θ₁) ≡ val≤ η u₁
-      p = ⟦⟧⇓-det ƛ⇓ (⟦⟧⇓≤ η ⇓u₁) refl
-      q : val≤ η u₁ ⟨∙⟩ v₁ ⇓ y₁
-      q = subst (λ w → w ⟨∙⟩ v₁ ⇓ y₁) p (lam⇓ ⇓y₁)
+      rewrite val≤ η u₁ ≡ lam t (env≤ η θ₁) ∋ ⟦⟧⇓-det (⟦⟧⇓≤ η ⇓u₁) ƛ⇓ refl
+      = y₁ , y₂ , y₁~y₂ , lam⇓ ⇓y₁ ,
+           lam⇓ ([]⇓ (∷⇓ ø⇓ (⊙⇓ ↑⇓ (⟦⟧*⇓≤ η ⇓θ₂))) ⇓y₂)
   ~cong⟦⟧ {t₁ = (t ∙ t′) [ σ ]} ≈app {ρ₁} {ρ₂} ρ₁~~ρ₂
     with ~~cong⟦≡⟧* σ ρ₁~~ρ₂
   ... | θ₁ , θ₂ , θ₁~θ₂ , ⇓θ₁ , ⇓θ₂
-    with ~cong⟦≡⟧ t′ θ₁~θ₂
-  ... | v₁ , v₂ , v₁~v₂ , ⇓v₁ , ⇓v₂
-    with ~cong⟦≡⟧ t θ₁~θ₂
-  ... | u₁ , u₂ , u₁~u₂ , ⇓u₁ , ⇓u₂
+    with ~cong⟦≡⟧ t θ₁~θ₂ | ~cong⟦≡⟧ t′ θ₁~θ₂
+  ... | u₁ , u₂ , u₁~u₂ , ⇓u₁ , ⇓u₂ | v₁ , v₂ , v₁~v₂ , ⇓v₁ , ⇓v₂
     with u₁~u₂ ≤id v₁~v₂
   ... | w₁ , w₂ , w₁~w₂ , ⇓w₁ , ⇓w₂
-    rewrite val≤∘≤id u₁ | val≤∘≤id u₂
+    rewrite val≤ ≤id u₁ ≡ u₁ ∋ val≤∘≤id u₁ | val≤ ≤id u₂ ≡ u₂ ∋ val≤∘≤id u₂
     = w₁ , w₂ , w₁~w₂ ,
          []⇓ ⇓θ₁ (∙⇓ ⇓u₁ ⇓v₁ ⇓w₁) ,
            ∙⇓ ([]⇓ ⇓θ₂ ⇓u₂) ([]⇓ ⇓θ₂ ⇓v₂) ⇓w₂
@@ -378,7 +355,8 @@ mutual
     h {Β} η {v₁} {v₂} v₁~v₂
       with ~≤ η {u₁} u₁~u₂ {Β} ≤id v₁~v₂
     ... | w₁ , w₂ , w₁~w₂ , ⇓w₁ , ⇓w₂
-      rewrite val≤∘≤id (val≤ η u₁) | val≤∘≤id (val≤ η u₂)
+      rewrite val≤ ≤id (val≤ η u₁) ≡ val≤ η u₁ ∋ val≤∘≤id (val≤ η u₁) |
+              val≤ ≤id (val≤ η u₂) ≡ val≤ η u₂ ∋ val≤∘≤id (val≤ η u₂)
       = w₁ , w₂ , w₁~w₂ , ⇓w₁ , g
       where
       g : lam (t [ ↑ ] ∙ ø) (env≤ η ρ₂) ⟨∙⟩ v₂ ⇓ w₂
@@ -398,7 +376,7 @@ mutual
   ~~cong⟦⟧* (≈≈trans σ₁≈≈σ₂ σ₂≈≈σ₃) ρ₁~~ρ₂
     with ~~cong⟦⟧* σ₁≈≈σ₂ (~~refl′ ρ₁~~ρ₂) | ~~cong⟦⟧* σ₂≈≈σ₃ ρ₁~~ρ₂
   ... | θ₁ , θ₂ , θ₁~θ₂ , ⇓θ₁ , ⇓θ₂ | φ₁ , φ₂ , φ₁~φ₂ , ⇓φ₁ , ⇓φ₂
-    rewrite ⟦⟧*⇓-det ⇓θ₂ ⇓φ₁ refl
+    rewrite θ₂ ≡ φ₁ ∋ ⟦⟧*⇓-det ⇓θ₂ ⇓φ₁ refl
     = θ₁ , φ₂ , ~~trans θ₁~θ₂ φ₁~φ₂ , ⇓θ₁ , ⇓φ₂
   ~~cong⟦⟧* (≈≈cong⊙ σ₁≈≈σ₂ τ₁≈≈τ₂) ρ₁~~ρ₂
     with ~~cong⟦⟧* τ₁≈≈τ₂ ρ₁~~ρ₂
@@ -470,9 +448,11 @@ mutual
                 {Β} η {v₁} {v₂} v₁~v₂
     with ~confl v₁ v₂ v₁~v₂
   ... | n₁ , n₂ , n₁≡n₂ , ⇓n₁ , ⇓n₂
-    with confl-ne→~ {β} (app⇓ (qNeVal≤ η ⇓ns₁) ⇓n₁)
-      (app⇓ (qNeVal≤ η ⇓ns₂) ⇓n₂)
-      (cong₂ app (cong (neNf≤ η) ns₁≡ns₂) n₁≡n₂)
+    with ne (app (neVal≤ η us₁) v₁) ~ ne (app (neVal≤ η us₂) v₂) ∋
+      confl-ne→~ {β}
+           (app⇓ (qNeVal≤ η ⇓ns₁) ⇓n₁)
+           (app⇓ (qNeVal≤ η ⇓ns₂) ⇓n₂)
+           (cong₂ app (cong (neNf≤ η) ns₁≡ns₂) n₁≡n₂)
   ... | us₁-v₁~us₂-v₂
     = ne (app (neVal≤ η us₁) v₁) , ne (app (neVal≤ η us₂) v₂) ,
          us₁-v₁~us₂-v₂ , ne⇓ , ne⇓
@@ -485,7 +465,7 @@ mutual
   confl-ne→~ var⇓ var⇓ refl ∷ ~~≤ wk ~~refl-id-env
 
 --
--- Soundness: t ≈ t′ → nf t ≡ nf t′
+-- Soundness: t₁ ≈ t₂ → nf t₁ ≡ nf t₂
 --
 
 sound : ∀ {α Γ} {t₁ t₂ : Tm Γ α} →
@@ -500,6 +480,8 @@ sound {α} {Γ} {t₁} {t₂} t₁≈t₂
 ... | w₁ , w₂ , w₁~w₂ , ⇓w₁ , ⇓w₂
   with ~confl w₁ w₂ w₁~w₂
 ... | n₁ , n₂ , n₁≡n₂ , ⇓n₁ , ⇓n₂
-  rewrite ⟦⟧⇓-det ⇓u₁ ⇓w₁ refl | ⟦⟧⇓-det ⇓u₂ ⇓w₂ refl |
-          qVal⇓-det ⇓m₁ ⇓n₁ refl | qVal⇓-det ⇓m₂ ⇓n₂ refl
+  rewrite u₁ ≡ w₁ ∋ ⟦⟧⇓-det ⇓u₁ ⇓w₁ refl |
+          u₂ ≡ w₂ ∋ ⟦⟧⇓-det ⇓u₂ ⇓w₂ refl |
+          m₁ ≡ n₁ ∋ qVal⇓-det ⇓m₁ ⇓n₁ refl |
+          m₂ ≡ n₂ ∋ qVal⇓-det ⇓m₂ ⇓n₂ refl
   = n₁≡n₂
