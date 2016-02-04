@@ -23,65 +23,9 @@ import Relation.Binary.EqReasoning as EqReasoning
 open import STLC-Tait-OPE
 
 --
--- Soundness: t ≈ t' → nf t ≡ nf t'
+-- Soundness: t₁ ≈ t₂ → nf t₁ ≡ nf t₂
 -- (Normalisation takes convertible terms to identical normal forms.)
 --
-
-mutual
-
-  ⟦⟧⇓-det : ∀ {α Γ Δ} {t : Tm Δ α} {ρ₁ ρ₂ : Env Γ Δ} {u₁ u₂} →
-    (⇓u₁ : ⟦ t ⟧ ρ₁ ⇓ u₁) (⇓u₂ : ⟦ t ⟧ ρ₂ ⇓ u₂)
-    (ρ₁≡ρ₂ : ρ₁ ≡ ρ₂) → u₁ ≡ u₂
-
-  ⟦⟧⇓-det ø⇓ ø⇓ refl = refl
-  ⟦⟧⇓-det (∙⇓ ⇓u₁ ⇓v₁ ⇓w₁) (∙⇓ ⇓u₂ ⇓v₂ ⇓w₂) ρ₁≡ρ₂ =
-    ⟨∙⟩⇓-det ⇓w₁ ⇓w₂ (⟦⟧⇓-det ⇓u₁ ⇓u₂ ρ₁≡ρ₂) (⟦⟧⇓-det ⇓v₁ ⇓v₂ ρ₁≡ρ₂)
-  ⟦⟧⇓-det ƛ⇓ ƛ⇓ refl = refl
-  ⟦⟧⇓-det ([]⇓ ⇓ρ₁ ⇓u₁) ([]⇓ ⇓ρ₂ ⇓u₂) ρ₁≡ρ₂ =
-    ⟦⟧⇓-det ⇓u₁ ⇓u₂ (⟦⟧*⇓-det ⇓ρ₁ ⇓ρ₂ ρ₁≡ρ₂)
-
-  ⟦⟧*⇓-det : ∀ {Γ Δ Δ′} {σ : Sub Δ Δ′} {ρ₁ ρ₂ : Env Γ Δ} {θ₁ θ₂}
-    (⇓θ₁ : ⟦ σ ⟧* ρ₁ ⇓ θ₁) (⇓θ₂ : ⟦ σ ⟧* ρ₂ ⇓ θ₂)
-    (ρ₁≡ρ₂ : ρ₁ ≡ ρ₂) → θ₁ ≡ θ₂
-
-  ⟦⟧*⇓-det ι⇓ ι⇓ ρ₁≡ρ₂ = ρ₁≡ρ₂
-  ⟦⟧*⇓-det (⊙⇓ ⇓θ₁ ⇓θ₂) (⊙⇓ ⇓φ₁ ⇓φ₂) ρ₁≡ρ₂ =
-    ⟦⟧*⇓-det ⇓θ₂ ⇓φ₂ (⟦⟧*⇓-det ⇓θ₁ ⇓φ₁ ρ₁≡ρ₂)
-  ⟦⟧*⇓-det (∷⇓ ⇓u₁ ⇓θ₁) (∷⇓ ⇓u₂ ⇓θ₂) ρ₁≡ρ₂ =
-    cong₂ _∷_ (⟦⟧⇓-det ⇓u₁ ⇓u₂ ρ₁≡ρ₂) (⟦⟧*⇓-det ⇓θ₁ ⇓θ₂ ρ₁≡ρ₂)
-  ⟦⟧*⇓-det ↑⇓ ↑⇓ refl = refl
-
-
-  ⟨∙⟩⇓-det : ∀ {α β Γ} {u₁ u₂ : Val Γ (α ⇒ β)} {v₁ v₂ : Val Γ α} {w₁ w₂}
-    (⇓w₁ : u₁ ⟨∙⟩ v₁ ⇓ w₁) (⇓w₂ : u₂ ⟨∙⟩ v₂ ⇓ w₂)
-    (u₁≡u₂ : u₁ ≡ u₂) (v₁≡v₂ : v₁ ≡ v₂) → w₁ ≡ w₂
-
-  ⟨∙⟩⇓-det ne⇓ ne⇓ refl refl = refl
-  ⟨∙⟩⇓-det (lam⇓ ⇓w₁) (lam⇓ ⇓w₂) refl refl =
-    ⟦⟧⇓-det ⇓w₁ ⇓w₂ refl
-
-
-mutual
-
-  qVal⇓-det : ∀ {α Γ} {u₁ u₂ : Val Γ α} {n₁ n₂}
-    (⇓n₁ : QVal u₁ ⇓ n₁) (⇓n₂ : QVal u₂ ⇓ n₂)
-    (u₁≡u₂ : u₁ ≡ u₂) →
-    n₁ ≡ n₂
-  qVal⇓-det (⋆⇓ us₁ ⇓ns₁) (⋆⇓ .us₁ ⇓ns₂) refl =
-    cong ne (qNeVal⇓-det ⇓ns₁ ⇓ns₂ refl)
-  qVal⇓-det (⇒⇓ ⇓u₁ ⇓n₁) (⇒⇓ ⇓u₂ ⇓n₂) refl =
-    cong lam (qVal⇓-det ⇓n₁ ⇓n₂ (⟨∙⟩⇓-det ⇓u₁ ⇓u₂ refl refl))
-
-  qNeVal⇓-det : ∀ {α Γ} {us₁ us₂ : NeVal Γ α} {ns₁ ns₂}
-    (⇓ns₁ : QNeVal us₁ ⇓ ns₁) (⇓ns₂ : QNeVal us₂ ⇓ ns₂)
-    (us₁≡us₂ : us₁ ≡ us₂) →
-    ns₁ ≡ ns₂
-
-  qNeVal⇓-det var⇓ var⇓ refl = refl
-  qNeVal⇓-det (app⇓ ⇓ns₁ ⇓n₁) (app⇓ ⇓ns₂ ⇓n₂) refl =
-    cong₂ app (qNeVal⇓-det ⇓ns₁ ⇓ns₂ refl) (qVal⇓-det ⇓n₁ ⇓n₂ refl)
-
-
 
 infix 4 _~_ _~~_
 
@@ -322,7 +266,8 @@ mutual
     h {Β} η {v₁} {v₂} v₁~v₂
       with ~cong⟦≡⟧ t (v₁~v₂ ∷ ~~≤ η θ₁~θ₂)
     ... | y₁ , y₂ , y₁~y₂ , ⇓y₁ , ⇓y₂
-      rewrite val≤ η u₁ ≡ lam t (env≤ η θ₁) ∋ ⟦⟧⇓-det (⟦⟧⇓≤ η ⇓u₁) ƛ⇓ refl
+      rewrite val≤ η u₁ ≡ lam t (env≤ η θ₁)
+                   ∋ ⟦⟧⇓-det (⟦⟧⇓≤ η ⇓u₁) ƛ⇓ refl
       = y₁ , y₂ , y₁~y₂ , lam⇓ ⇓y₁ ,
            lam⇓ ([]⇓ (∷⇓ ø⇓ (⊙⇓ ↑⇓ (⟦⟧*⇓≤ η ⇓θ₂))) ⇓y₂)
   ~cong⟦⟧ {t₁ = (t ∙ t′) [ σ ]} ≈app {ρ₁} {ρ₂} ρ₁~~ρ₂
@@ -332,7 +277,8 @@ mutual
   ... | u₁ , u₂ , u₁~u₂ , ⇓u₁ , ⇓u₂ | v₁ , v₂ , v₁~v₂ , ⇓v₁ , ⇓v₂
     with u₁~u₂ ≤id v₁~v₂
   ... | w₁ , w₂ , w₁~w₂ , ⇓w₁ , ⇓w₂
-    rewrite val≤ ≤id u₁ ≡ u₁ ∋ val≤∘≤id u₁ | val≤ ≤id u₂ ≡ u₂ ∋ val≤∘≤id u₂
+    rewrite val≤ ≤id u₁ ≡ u₁ ∋ val≤∘≤id u₁ |
+            val≤ ≤id u₂ ≡ u₂ ∋ val≤∘≤id u₂
     = w₁ , w₂ , w₁~w₂ ,
          []⇓ ⇓θ₁ (∙⇓ ⇓u₁ ⇓v₁ ⇓w₁) ,
            ∙⇓ ([]⇓ ⇓θ₂ ⇓u₂) ([]⇓ ⇓θ₂ ⇓v₂) ⇓w₂
@@ -343,7 +289,7 @@ mutual
   ... | v₁ , v₂ , v₁~v₂ , ⇓v₁ , ⇓v₂
     = v₁ , v₂ , v₁~v₂ ,
       ∙⇓ ([]⇓ ⇓θ₁ ƛ⇓) ⇓u₁ (lam⇓ ⇓v₁) , []⇓ (∷⇓ ⇓u₂ ⇓θ₂) ⇓v₂
-  ~cong⟦⟧ {α ⇒ β} {Γ} {Δ} {t₁ = .t} {t₂ = ƛ (t [ ↑ ] ∙ ø)} ≈η {ρ₁} {ρ₂} ρ₁~~ρ₂
+  ~cong⟦⟧ {α ⇒ β} {Γ} {Δ} {t₂ = ƛ (t [ ↑ ] ∙ ø)} ≈η {ρ₁} {ρ₂} ρ₁~~ρ₂
     with ~cong⟦≡⟧ t ρ₁~~ρ₂
   ... | u₁ , u₂ , u₁~u₂ , ⇓u₁ , ⇓u₂
     = u₁ , lam (t [ ↑ ] ∙ ø) ρ₂ , h , ⇓u₁ , ƛ⇓

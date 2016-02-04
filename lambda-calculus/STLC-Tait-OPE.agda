@@ -108,7 +108,6 @@ III : Tm [] (⋆ ⇒ ⋆)
 III = I {⋆ ⇒ ⋆} ∙ (I {⋆ ⇒ ⋆} ∙ I {⋆})
 
 
-
 --
 -- A "denotational" semantics for `Tm α`.
 --
@@ -261,7 +260,7 @@ mutual
 
   data NeVal (Γ : Ctx) : Ty → Set where
     var : ∀ {α} (x : Var Γ α) → NeVal Γ α
-    app : ∀ {α β} (f : NeVal Γ (α ⇒ β)) (u : Val Γ α) → NeVal Γ β
+    app : ∀ {α β} (us : NeVal Γ (α ⇒ β)) (u : Val Γ α) → NeVal Γ β
 
 
 module NaiveEval where
@@ -311,7 +310,7 @@ mutual
 
   data NeNf (Γ : Ctx) : Ty → Set where
     var : ∀ {α} (x : Var Γ α) → NeNf Γ α
-    app : ∀ {α β} (f : NeNf Γ (α ⇒ β)) (u : Nf Γ α) → NeNf Γ β
+    app : ∀ {α β} (ns : NeNf Γ (α ⇒ β)) (n : Nf Γ α) → NeNf Γ β
 
 
 --
@@ -616,6 +615,81 @@ data Nf_⇓_ : ∀ {α Γ} (t : Tm Γ α) (n : Nf Γ α) → Set where
 nf-III⇓ : Nf III ⇓ lam (ne (var zero))
 nf-III⇓ = nf⇓ (∙⇓ ƛ⇓ (∙⇓ ƛ⇓ ƛ⇓ (lam⇓ ø⇓)) (lam⇓ ø⇓))
                   (⇒⇓ (lam⇓ ø⇓) (⋆⇓ (var zero) var⇓))
+
+--
+-- Determinism (left-injectivity) of ⟦_⟧_⇓_ , QVal_⇓_ and Nf_⇓_ :
+--
+--   ⟦ t ⟧ ρ₁ ⇓ u₁ →  ⟦ t ⟧ ρ₂ ⇓ u₂ → ρ₁ ≡ ρ₂ → u₁ ≡ u₂
+--   QVal u₁ ⇓ n₁ →  QVal u₂ ⇓ n₂ → u₁ ≡ u₂ →  n₁ ≡ n₂
+--   Nf t ⇓ n₁ → Nf t ⇓ n₂ → n₁ ≡ n₂
+--
+
+--   ⟦ t ⟧ ρ₁ ⇓ u₁ →  ⟦ t ⟧ ρ₂ ⇓ u₂ → ρ₁ ≡ ρ₂ → u₁ ≡ u₂
+
+mutual
+
+  ⟦⟧⇓-det : ∀ {α Γ Δ} {t : Tm Δ α} {ρ₁ ρ₂ : Env Γ Δ} {u₁ u₂} →
+    (⇓u₁ : ⟦ t ⟧ ρ₁ ⇓ u₁) (⇓u₂ : ⟦ t ⟧ ρ₂ ⇓ u₂)
+    (ρ₁≡ρ₂ : ρ₁ ≡ ρ₂) → u₁ ≡ u₂
+
+  ⟦⟧⇓-det ø⇓ ø⇓ refl = refl
+  ⟦⟧⇓-det (∙⇓ ⇓u₁ ⇓v₁ ⇓w₁) (∙⇓ ⇓u₂ ⇓v₂ ⇓w₂) ρ₁≡ρ₂ =
+    ⟨∙⟩⇓-det ⇓w₁ ⇓w₂ (⟦⟧⇓-det ⇓u₁ ⇓u₂ ρ₁≡ρ₂) (⟦⟧⇓-det ⇓v₁ ⇓v₂ ρ₁≡ρ₂)
+  ⟦⟧⇓-det ƛ⇓ ƛ⇓ refl = refl
+  ⟦⟧⇓-det ([]⇓ ⇓ρ₁ ⇓u₁) ([]⇓ ⇓ρ₂ ⇓u₂) ρ₁≡ρ₂ =
+    ⟦⟧⇓-det ⇓u₁ ⇓u₂ (⟦⟧*⇓-det ⇓ρ₁ ⇓ρ₂ ρ₁≡ρ₂)
+
+  ⟦⟧*⇓-det : ∀ {Γ Δ Δ′} {σ : Sub Δ Δ′} {ρ₁ ρ₂ : Env Γ Δ} {θ₁ θ₂}
+    (⇓θ₁ : ⟦ σ ⟧* ρ₁ ⇓ θ₁) (⇓θ₂ : ⟦ σ ⟧* ρ₂ ⇓ θ₂)
+    (ρ₁≡ρ₂ : ρ₁ ≡ ρ₂) → θ₁ ≡ θ₂
+
+  ⟦⟧*⇓-det ι⇓ ι⇓ ρ₁≡ρ₂ = ρ₁≡ρ₂
+  ⟦⟧*⇓-det (⊙⇓ ⇓θ₁ ⇓θ₂) (⊙⇓ ⇓φ₁ ⇓φ₂) ρ₁≡ρ₂ =
+    ⟦⟧*⇓-det ⇓θ₂ ⇓φ₂ (⟦⟧*⇓-det ⇓θ₁ ⇓φ₁ ρ₁≡ρ₂)
+  ⟦⟧*⇓-det (∷⇓ ⇓u₁ ⇓θ₁) (∷⇓ ⇓u₂ ⇓θ₂) ρ₁≡ρ₂ =
+    cong₂ _∷_ (⟦⟧⇓-det ⇓u₁ ⇓u₂ ρ₁≡ρ₂) (⟦⟧*⇓-det ⇓θ₁ ⇓θ₂ ρ₁≡ρ₂)
+  ⟦⟧*⇓-det ↑⇓ ↑⇓ refl = refl
+
+
+  ⟨∙⟩⇓-det : ∀ {α β Γ} {u₁ u₂ : Val Γ (α ⇒ β)} {v₁ v₂ : Val Γ α} {w₁ w₂}
+    (⇓w₁ : u₁ ⟨∙⟩ v₁ ⇓ w₁) (⇓w₂ : u₂ ⟨∙⟩ v₂ ⇓ w₂)
+    (u₁≡u₂ : u₁ ≡ u₂) (v₁≡v₂ : v₁ ≡ v₂) → w₁ ≡ w₂
+
+  ⟨∙⟩⇓-det ne⇓ ne⇓ refl refl = refl
+  ⟨∙⟩⇓-det (lam⇓ ⇓w₁) (lam⇓ ⇓w₂) refl refl =
+    ⟦⟧⇓-det ⇓w₁ ⇓w₂ refl
+
+--   QVal u₁ ⇓ n₁ →  QVal u₂ ⇓ n₂ → u₁ ≡ u₂ →  n₁ ≡ n₂
+
+mutual
+
+  qVal⇓-det : ∀ {α Γ} {u₁ u₂ : Val Γ α} {n₁ n₂}
+    (⇓n₁ : QVal u₁ ⇓ n₁) (⇓n₂ : QVal u₂ ⇓ n₂)
+    (u₁≡u₂ : u₁ ≡ u₂) →
+    n₁ ≡ n₂
+  qVal⇓-det (⋆⇓ us₁ ⇓ns₁) (⋆⇓ .us₁ ⇓ns₂) refl =
+    cong ne (qNeVal⇓-det ⇓ns₁ ⇓ns₂ refl)
+  qVal⇓-det (⇒⇓ ⇓u₁ ⇓n₁) (⇒⇓ ⇓u₂ ⇓n₂) refl =
+    cong lam (qVal⇓-det ⇓n₁ ⇓n₂ (⟨∙⟩⇓-det ⇓u₁ ⇓u₂ refl refl))
+
+  qNeVal⇓-det : ∀ {α Γ} {us₁ us₂ : NeVal Γ α} {ns₁ ns₂}
+    (⇓ns₁ : QNeVal us₁ ⇓ ns₁) (⇓ns₂ : QNeVal us₂ ⇓ ns₂)
+    (us₁≡us₂ : us₁ ≡ us₂) →
+    ns₁ ≡ ns₂
+
+  qNeVal⇓-det var⇓ var⇓ refl = refl
+  qNeVal⇓-det (app⇓ ⇓ns₁ ⇓n₁) (app⇓ ⇓ns₂ ⇓n₂) refl =
+    cong₂ app (qNeVal⇓-det ⇓ns₁ ⇓ns₂ refl) (qVal⇓-det ⇓n₁ ⇓n₂ refl)
+
+--   Nf t ⇓ n₁ → Nf t ⇓ n₂ → n₁ ≡ n₂
+
+nf⇓-det : ∀ {α Γ} (t : Tm Γ α)
+  {n₁} (⇓n₁ : Nf t ⇓ n₁) {n₂} (⇓n₂ : Nf t ⇓ n₂) →
+  n₁ ≡ n₂
+nf⇓-det t (nf⇓ ⇓u₁ ⇓n₁) (nf⇓ ⇓u₂ ⇓n₂)
+  rewrite ⟦⟧⇓-det ⇓u₁ ⇓u₂ refl
+  = qVal⇓-det ⇓n₁ ⇓n₂ refl
+
 
 --
 -- Structurally recursive evaluator.
@@ -1270,17 +1344,28 @@ mutual
 --
 
 nf : ∀ {α Γ} (t : Tm Γ α) → Nf Γ α
-nf t with all-scv t id-env sce-id-env
-... | u , p , ⇓u , ≈u with all-qval u p
+nf t
+  with all-scv t id-env sce-id-env
+... | u , p , ⇓u , ≈u
+  with all-qval u p
 ... | n , ⇓n , ≈n = n
 
--- This holds "by construction".
 
-⇓nf :  ∀ {α Γ} (t : Tm Γ α) → Nf t ⇓ nf t
-⇓nf t with all-scv t id-env sce-id-env
-... | u , p , ⇓u , ≈u with all-qval u p
-... | n , ⇓n , ≈n =
-  nf⇓ (⟦ t ⟧ id-env ⇓ u ∋ ⇓u) (QVal u ⇓ n ∋ ⇓n)
+--
+-- This holds "by construction":
+--     Nf t ⇓ n → nf t ≡ n
+--
+
+nf⇓→nf : ∀ {α Γ} (t : Tm Γ α) {n} (⇓n : Nf t ⇓ n) → nf t ≡ n
+nf⇓→nf t {n} (nf⇓ {u = u} ⇓u ⇓n)
+  with all-scv t id-env sce-id-env
+... | u′ , p′ , ⇓u′ , ≈u′
+  with all-qval u′ p′
+... | n′ , ⇓n′ , ≈n′
+  rewrite u′ ≡ u ∋ ⟦⟧⇓-det ⇓u′ ⇓u refl |
+          n′ ≡ n ∋ qVal⇓-det ⇓n′ ⇓n refl
+  = refl
+
 
 --
 -- Stability: nf (embNf n) ≡ n .
@@ -1288,26 +1373,26 @@ nf t with all-scv t id-env sce-id-env
 
 -- Nf embNf n ⇓ n
 
-var≤-suc : ∀ {α γ Β Γ} (η : Β ≤ γ ∷ Γ) (x : Var Γ α) →
+var≤∘suc : ∀ {α γ Β Γ} (η : Β ≤ γ ∷ Γ) (x : Var Γ α) →
   var≤ η (suc x) ≡ var≤ (η ● wk) x
-var≤-suc (≤weak η) x =
-  cong suc (var≤-suc η x)
-var≤-suc (≤lift η) x
+var≤∘suc (≤weak η) x =
+  cong suc (var≤∘suc η x)
+var≤∘suc (≤lift η) x
   rewrite η ● ≤id ≡ η ∋ η●≤id η
   = refl
 
-⟦embVar⟧≤⇓ : ∀ {α Β Γ} (x : Var Γ α) (η : Β ≤ Γ) →
+⟦embVar⟧≤⇓ : ∀ {α Β Γ} (η : Β ≤ Γ) (x : Var Γ α) →
   ⟦ embVar x ⟧ (env≤ η id-env) ⇓ ne (var (var≤ η x))
-⟦embVar⟧≤⇓ zero η = ø⇓
-⟦embVar⟧≤⇓ (suc x) η
-  rewrite env≤ η (wkEnv id-env) ≡ env≤ (η ● wk) id-env ∋ env≤∘ η wk id-env |
-          var≤ η (suc x) ≡ var≤ (η ● ≤weak ≤id) x ∋ var≤-suc η x
-  = []⇓ ↑⇓ (⟦embVar⟧≤⇓ x (η ● wk))
+⟦embVar⟧≤⇓ η zero = ø⇓
+⟦embVar⟧≤⇓ η (suc x)
+  rewrite env≤ η (env≤ wk id-env) ≡ env≤ (η ● wk) id-env ∋ env≤∘ η wk id-env |
+          var≤ η (suc x) ≡ var≤ (η ● wk) x ∋ var≤∘suc η x
+  = []⇓ ↑⇓ (⟦embVar⟧≤⇓ (η ● wk) x)
 
 ⟦embVar⟧⇓ : ∀ {α Γ} (x : Var Γ α) →
   ⟦ embVar x ⟧ id-env ⇓ ne (var x)
 ⟦embVar⟧⇓ {α} {Γ} x
-  with ⟦embVar⟧≤⇓ x ≤id
+  with ⟦embVar⟧≤⇓ ≤id x
 ... | r
   rewrite env≤ ≤id id-env ≡ id-env ∋ env≤∘≤id {Γ} {Γ} id-env |
           var≤ ≤id x ≡ x ∋ var≤∘≤id x
@@ -1316,12 +1401,14 @@ var≤-suc (≤lift η) x
 mutual
 
   stable⇓ : ∀ {α Γ} (n : Nf Γ α) → Nf embNf n ⇓ n
-  stable⇓ (ne ns) with stable*⇓ ns
-  ... | us , ⇓us , ⇓ns =
-    nf⇓ ⇓us (⋆⇓ us ⇓ns)
-  stable⇓ (lam n) with stable⇓ n
-  ... | nf⇓ ⇓u ⇓n =
-    nf⇓ ƛ⇓ (⇒⇓ (lam⇓ ⇓u) ⇓n)
+  stable⇓ (ne ns)
+    with stable*⇓ ns
+  ... | us , ⇓us , ⇓ns
+    = nf⇓ ⇓us (⋆⇓ us ⇓ns)
+  stable⇓ (lam n)
+    with stable⇓ n
+  ... | nf⇓ ⇓u ⇓n
+    = nf⇓ ƛ⇓ (⇒⇓ (lam⇓ ⇓u) ⇓n)
 
   stable*⇓ : ∀ {α Γ} (ns : NeNf Γ α) →
     ∃ λ (us : NeVal Γ α) →
@@ -1332,34 +1419,13 @@ mutual
   ... | us , ⇓us , ⇓ns | nf⇓ {u = u} ⇓u ⇓n =
     app us u , ∙⇓ ⇓us ⇓u ne⇓ , app⇓ ⇓ns ⇓n
 
-mutual
 
-  stable⇓≡ : ∀ {α Γ} (n : Nf Γ α) → ∃ λ n′ → Nf embNf n ⇓ n′ × n ≡ n′
-  stable⇓≡ (ne ns) with stable*⇓ ns
-  ... | us , ⇓us , ⇓ns =
-    ne ns , nf⇓ ⇓us (⋆⇓ us ⇓ns) , refl
-  stable⇓≡ (lam n) with stable⇓≡ n
-  ... | .n , nf⇓ ⇓u ⇓n , refl =
-    lam n , nf⇓ ƛ⇓ (⇒⇓ (lam⇓ ⇓u) ⇓n) , refl
+-- nf (embNf n) ≡ n
 
-  stable*⇓≡ : ∀ {α Γ} (ns : NeNf Γ α) →
-    ∃ λ (us : NeVal Γ α) →
-      ⟦ embNeNf ns ⟧ id-env ⇓ ne us × QNeVal us ⇓ ns
-  stable*⇓≡ (var x) =
-    var x , ⟦embVar⟧⇓ x , var⇓
-  stable*⇓≡ (app ns n)  with stable*⇓≡ ns | stable⇓≡ n
-  ... | us , ⇓us , ⇓ns | .n , nf⇓ {u = u} ⇓u ⇓n , refl =
-    app us u , ∙⇓ ⇓us ⇓u ne⇓ , app⇓ ⇓ns ⇓n
+stable : ∀ {α Γ} (n : Nf Γ α) → nf (embNf n) ≡ n
+stable n =
+  nf⇓→nf (embNf n) (stable⇓ n)
 
-{-
-stable≡ : ∀ {α Γ} (n : Nf Γ α) → nf (embNf n) ≡ n
-stable≡ n with all-scv (embNf n) id-env sce-id-env
-... | u , ⇓u , ≈u , p with all-qval u p
-... | n′ , ⇓n′ , ≈n′ with stable⇓≡ n
-... | .n , nf⇓ {u = u′} ⇓u′ ⇓n , refl
-  with ⟦⟧⇓-det (embNf n) id-env u u′ ⇓u ⇓u′
-... | u≡u′ rewrite u≡u′ = {!!}
--}
 
 --
 -- Completeness: terms are convertible to their normal forms.
@@ -1367,8 +1433,10 @@ stable≡ n with all-scv (embNf n) id-env sce-id-env
 
 complete : ∀ {α Γ} (t : Tm Γ α) → t ≈ embNf (nf t)
 
-complete t with all-scv t id-env sce-id-env
-... | u , p , ⇓u , ≈u with all-qval u p
+complete t
+  with all-scv t id-env sce-id-env
+... | u , p , ⇓u , ≈u
+  with all-qval u p
 ... | n , ⇓n , ≈n = begin
   t
     ≈⟨ ≈sym ≈id ⟩
@@ -1381,13 +1449,3 @@ complete t with all-scv t id-env sce-id-env
   embNf n
   ∎
   where open ≈-Reasoning
-
---
--- Stability: nf (embNf n) ≡ n
---
-
-{-
-postulate
-
-  stable : ∀ {α Γ} (n : Nf Γ α) → nf (embNf n) ≡ n
--}

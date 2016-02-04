@@ -19,10 +19,70 @@ open import Relation.Binary
 
 import Relation.Binary.EqReasoning as EqReasoning
 
-open import STLC-Tait-OPE hiding (nf)
+open import STLC-Tait-OPE hiding (nf; stable)
 
 open NaiveEval using (⟦_⟧_; ⟦_⟧*_; _⟨∙⟩_)
 open NaiveNorm using (qVal; qNeVal; nf)
+
+--
+-- Stability: nf (embNf n) ≡ n .
+--
+
+⟦⟧∘embVar≤ : ∀ {α Β Γ} (η : Β ≤ Γ) (x : Var Γ α) →
+  ⟦ embVar x ⟧ (env≤ η id-env) ≡ ne (var (var≤ η x))
+⟦⟧∘embVar≤ η zero = refl
+⟦⟧∘embVar≤ η (suc x)
+  rewrite env≤∘ η wk id-env | var≤∘suc η x
+  = ⟦⟧∘embVar≤ (η ● wk) x
+
+⟦⟧∘embVar : ∀ {α Γ} (x : Var Γ α) →
+  ⟦ embVar x ⟧ id-env ≡ ne (var x)
+⟦⟧∘embVar x = begin
+  ⟦ embVar x ⟧ id-env
+    ≡⟨ cong (⟦_⟧_ (embVar x)) (sym $ env≤∘≤id id-env) ⟩
+  ⟦ embVar x ⟧ (env≤ ≤id id-env)
+    ≡⟨ ⟦⟧∘embVar≤ ≤id x ⟩
+  ne (var (var≤ ≤id x))
+    ≡⟨ cong (ne ∘′ var) (var≤∘≤id x) ⟩
+  ne (var x)
+  ∎
+  where open ≡-Reasoning
+
+mutual
+
+  stable : ∀ {α Γ} (n : Nf Γ α) → nf (embNf n) ≡ n
+  stable (ne ns)
+    with stable* ns
+  ... | us , ≡ne-us , ≡ns = begin
+    qVal (⟦ embNeNf ns ⟧ id-env)
+      ≡⟨ cong qVal ≡ne-us ⟩
+    qVal (ne us)
+      ≡⟨⟩
+    ne (qNeVal us)
+      ≡⟨ cong ne ≡ns ⟩
+    ne ns
+    ∎
+    where open ≡-Reasoning
+  stable (lam n) =
+    cong lam (stable n)
+
+  stable* : ∀ {α Γ} (ns : NeNf Γ α) →
+    ∃ λ (us : NeVal Γ α) →
+      ⟦ embNeNf ns ⟧ id-env ≡ ne us × qNeVal us ≡ ns
+  stable* (var x) =
+    var x , ⟦⟧∘embVar x , refl
+  stable* (app ns n)
+    with stable* ns | stable n
+  ... | us , ≡ne-us , ≡ns | ≡n
+    with ⟦ embNeNf ns ⟧ id-env | ⟦ embNf n ⟧ id-env
+  ... | ne-us′ | u 
+    rewrite ≡ne-us
+    = app us u , refl , cong₂ app ≡ns ≡n
+
+--
+-- Soundness: t₁ ≈ t₂ → nf t₁ ≡ nf t₂
+-- (Normalisation takes convertible terms to identical normal forms.)
+--
 
 {-# TERMINATING #-}
 mutual
@@ -382,8 +442,8 @@ mutual
 -- t ≈ t′ → nf t ≡ nf t′
 --
 
-nf-sound : ∀ {α Γ} {t₁ t₂ : Tm Γ α} →
+sound : ∀ {α Γ} {t₁ t₂ : Tm Γ α} →
   t₁ ≈ t₂ → nf t₁ ≡ nf t₂
 
-nf-sound {α} {Γ} {t₁} {t₂} t₁≈t₂ =
+sound {α} {Γ} {t₁} {t₂} t₁≈t₂ =
   ~confl (~cong⟦⟧ t₁≈t₂ (~~refl id-env))
