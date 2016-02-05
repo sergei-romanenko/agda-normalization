@@ -263,41 +263,6 @@ mutual
     app : ∀ {α β} (us : NeVal Γ (α ⇒ β)) (u : Val Γ α) → NeVal Γ β
 
 
-module NaiveEval where
-
-  {-# TERMINATING #-}
-  mutual
-
-    infixl 5 _⟨∙⟩_
-
-    ⟦_⟧_ : ∀ {α Γ Δ} (t : Tm Δ α) (ρ : Env Γ Δ) → Val Γ α
-    ⟦ ø ⟧ (u ∷ ρ) = u
-    ⟦ t ∙ t′ ⟧ ρ = ⟦ t ⟧ ρ ⟨∙⟩ ⟦ t′ ⟧ ρ
-    ⟦ ƛ t ⟧ ρ = lam t ρ
-    ⟦ t [ σ ] ⟧ ρ = ⟦ t ⟧ (⟦ σ ⟧* ρ)
-
-    ⟦_⟧*_ : ∀ {Β Γ Δ} (σ : Sub Β Γ) (ρ : Env Δ Β) → Env Δ Γ
-    ⟦ ı ⟧* ρ = ρ
-    ⟦ σ ⊙ σ′ ⟧* ρ = ⟦ σ ⟧* (⟦ σ′ ⟧* ρ)
-    ⟦ t ∷ σ ⟧* ρ = ⟦ t ⟧ ρ ∷ ⟦ σ ⟧* ρ
-    ⟦ ↑ ⟧* (u ∷ ρ) = ρ
-
-    _⟨∙⟩_ : ∀ {α β Γ} (u : Val Γ (α ⇒ β)) (v : Val Γ α) → Val Γ β
-    ne us ⟨∙⟩ u = ne (app us u)
-    lam t ρ ⟨∙⟩ u = ⟦ t ⟧ (u ∷ ρ)
-
-  ⟦III⟧ : ⟦ III ⟧ ([] {[]}) ≡ lam ø []
-  ⟦III⟧ = refl
-
-  ⟦SKK⟧ : ⟦ SKK {⋆} ⟧ ([] {[]}) ≡
-    lam (ø [ ↑ ] [ ↑ ] ∙ ø ∙ (ø [ ↑ ] ∙ ø))
-        (lam (ƛ ø [ ↑ ]) [] ∷ (lam (ƛ ø [ ↑ ]) [] ∷ []))
-  ⟦SKK⟧ = refl
-
-  ⟦SKK∙I⟧ : ⟦ SKK ∙ I {⋆} ⟧ ([] {[]}) ≡ lam ø []
-  ⟦SKK∙I⟧ = refl
-  
-
 --
 -- η-long β-normal forms.
 --
@@ -485,68 +450,13 @@ mutual
 wk : ∀ {α Γ} → α ∷ Γ ≤ Γ
 wk = ≤weak ≤id
 
-wkNeVal : ∀ {α β Γ} (us : NeVal Γ α) → NeVal (β ∷ Γ) α
-wkNeVal = neVal≤ wk
-
-wkVal : ∀ {α β Γ} (u : Val Γ α) → Val (β ∷ Γ) α
-wkVal = val≤ wk
-
-wkEnv : ∀ {α Γ Δ} (ρ : Env Γ Δ) → Env (α ∷ Γ) Δ
-wkEnv = env≤ wk
-
--- We can iterate weakenings using contexts.
-
-wkNeVal* : ∀ {α} Δ {Γ} (us : NeVal Γ α) → NeVal (Δ ++ Γ) α
-wkNeVal* [] us = us
-wkNeVal* (α ∷ Δ) us = wkNeVal (wkNeVal* Δ us)
-
-wkVal* : ∀ {α} Δ {Γ} (u : Val Γ α) → Val (Δ ++ Γ) α
-wkVal* [] u = u
-wkVal* (α ∷ Δ) u = wkVal (wkVal* Δ u)
-
-wkEnv* : ∀ {Β} Δ {Γ} (ρ : Env Γ Β) → Env (Δ ++ Γ) Β
-wkEnv* [] ρ = ρ
-wkEnv* (α ∷ Δ) ρ = wkEnv (wkEnv* Δ ρ)
-
 --
 -- Identity environments.
 --
 
 id-env : ∀ {Γ} → Env Γ Γ
 id-env {[]} = []
-id-env {α ∷ Γ} = ne (var zero) ∷ wkEnv id-env
-
---
--- Recursive normalizer.
---
-
-module NaiveNorm where
-
-  open NaiveEval
-
-  {-# TERMINATING #-}
-  mutual
-
-    qVal : ∀ {α Γ} (u : Val Γ α) → Nf Γ α
-    qVal {⋆} (ne us) = ne (qNeVal us)
-    qVal {α ⇒ β} f =
-      lam (qVal (wkVal f ⟨∙⟩ ne (var zero)))
-
-    qNeVal : ∀ {α Γ} (us : NeVal Γ α) → NeNf Γ α
-    qNeVal (var x) = var x
-    qNeVal (app us u) = app (qNeVal us) (qVal u)
-
-  nf : ∀ {α Γ} (t : Tm Γ α) → Nf Γ α
-  nf t = qVal (⟦ t ⟧ id-env)
-
-  nf-III : nf III ≡ lam (ne (var zero))
-  nf-III = refl
-
-  nf-SKK : nf (SKK {⋆}) ≡ lam (ne (var zero))
-  nf-SKK = refl
-
-  nf-SKK∙I : nf (SKK ∙ I {⋆}) ≡ lam (ne (var zero))
-  nf-SKK∙I = refl
+id-env {α ∷ Γ} = ne (var zero) ∷ env≤ wk id-env
 
 --
 -- Relational big-step semantics.
@@ -591,25 +501,25 @@ mutual
 
 mutual
 
-  data QVal_⇓_ : ∀ {α Γ} (u : Val Γ α) (n : Nf Γ α) → Set where
+  data Quote_⇓_ : ∀ {α Γ} (u : Val Γ α) (n : Nf Γ α) → Set where
     ⋆⇓ : ∀ {Γ} (us : NeVal Γ ⋆) {ns}
-      (⇓ns : QNeVal us ⇓ ns) →
-      QVal (ne us) ⇓ ne ns
+      (⇓ns : Quote* us ⇓ ns) →
+      Quote (ne us) ⇓ ne ns
     ⇒⇓ : ∀ {α β Γ} {f : Val Γ (α ⇒ β)} {u n} →
-      (⇓u : wkVal f ⟨∙⟩ ne (var zero) ⇓ u) (⇓n : QVal u ⇓ n) →
-      QVal f ⇓ lam n
+      (⇓u : val≤ wk f ⟨∙⟩ ne (var zero) ⇓ u) (⇓n : Quote u ⇓ n) →
+      Quote f ⇓ lam n
 
-  data QNeVal_⇓_ : ∀ {α Γ} (us : NeVal Γ α) (ns : NeNf Γ α) → Set where
+  data Quote*_⇓_ : ∀ {α Γ} (us : NeVal Γ α) (ns : NeNf Γ α) → Set where
     var⇓ : ∀ {α Γ} {x : Var Γ α} →
-      QNeVal var x ⇓ var x
+      Quote* var x ⇓ var x
     app⇓ : ∀ {α β Γ} {us : NeVal Γ (α ⇒ β)} {u : Val Γ α} {ns n}
-      (⇓ns : QNeVal us ⇓ ns) (⇓n : QVal u ⇓ n) →
-      QNeVal app us u ⇓ app ns n
+      (⇓ns : Quote* us ⇓ ns) (⇓n : Quote u ⇓ n) →
+      Quote* app us u ⇓ app ns n
 
 
 data Nf_⇓_ : ∀ {α Γ} (t : Tm Γ α) (n : Nf Γ α) → Set where
   nf⇓ : ∀ {α Γ} {t : Tm Γ α} {u n}
-    (⇓u : ⟦ t ⟧ id-env ⇓ u) (⇓n : QVal u ⇓ n) →
+    (⇓u : ⟦ t ⟧ id-env ⇓ u) (⇓n : Quote u ⇓ n) →
     Nf t ⇓ n
 
 nf-III⇓ : Nf III ⇓ lam (ne (var zero))
@@ -617,10 +527,10 @@ nf-III⇓ = nf⇓ (∙⇓ ƛ⇓ (∙⇓ ƛ⇓ ƛ⇓ (lam⇓ ø⇓)) (lam⇓ ø�
                   (⇒⇓ (lam⇓ ø⇓) (⋆⇓ (var zero) var⇓))
 
 --
--- Determinism (left-injectivity) of ⟦_⟧_⇓_ , QVal_⇓_ and Nf_⇓_ :
+-- Determinism (left-injectivity) of ⟦_⟧_⇓_ , Quote_⇓_ and Nf_⇓_ :
 --
 --   ⟦ t ⟧ ρ₁ ⇓ u₁ →  ⟦ t ⟧ ρ₂ ⇓ u₂ → ρ₁ ≡ ρ₂ → u₁ ≡ u₂
---   QVal u₁ ⇓ n₁ →  QVal u₂ ⇓ n₂ → u₁ ≡ u₂ →  n₁ ≡ n₂
+--   Quote u₁ ⇓ n₁ →  Quote u₂ ⇓ n₂ → u₁ ≡ u₂ →  n₁ ≡ n₂
 --   Nf t ⇓ n₁ → Nf t ⇓ n₂ → n₁ ≡ n₂
 --
 
@@ -659,27 +569,27 @@ mutual
   ⟨∙⟩⇓-det (lam⇓ ⇓w₁) (lam⇓ ⇓w₂) refl refl =
     ⟦⟧⇓-det ⇓w₁ ⇓w₂ refl
 
---   QVal u₁ ⇓ n₁ →  QVal u₂ ⇓ n₂ → u₁ ≡ u₂ →  n₁ ≡ n₂
+--   Quote u₁ ⇓ n₁ →  Quote u₂ ⇓ n₂ → u₁ ≡ u₂ →  n₁ ≡ n₂
 
 mutual
 
-  qVal⇓-det : ∀ {α Γ} {u₁ u₂ : Val Γ α} {n₁ n₂}
-    (⇓n₁ : QVal u₁ ⇓ n₁) (⇓n₂ : QVal u₂ ⇓ n₂)
+  quote⇓-det : ∀ {α Γ} {u₁ u₂ : Val Γ α} {n₁ n₂}
+    (⇓n₁ : Quote u₁ ⇓ n₁) (⇓n₂ : Quote u₂ ⇓ n₂)
     (u₁≡u₂ : u₁ ≡ u₂) →
     n₁ ≡ n₂
-  qVal⇓-det (⋆⇓ us₁ ⇓ns₁) (⋆⇓ .us₁ ⇓ns₂) refl =
-    cong ne (qNeVal⇓-det ⇓ns₁ ⇓ns₂ refl)
-  qVal⇓-det (⇒⇓ ⇓u₁ ⇓n₁) (⇒⇓ ⇓u₂ ⇓n₂) refl =
-    cong lam (qVal⇓-det ⇓n₁ ⇓n₂ (⟨∙⟩⇓-det ⇓u₁ ⇓u₂ refl refl))
+  quote⇓-det (⋆⇓ us₁ ⇓ns₁) (⋆⇓ .us₁ ⇓ns₂) refl =
+    cong ne (quote*⇓-det ⇓ns₁ ⇓ns₂ refl)
+  quote⇓-det (⇒⇓ ⇓u₁ ⇓n₁) (⇒⇓ ⇓u₂ ⇓n₂) refl =
+    cong lam (quote⇓-det ⇓n₁ ⇓n₂ (⟨∙⟩⇓-det ⇓u₁ ⇓u₂ refl refl))
 
-  qNeVal⇓-det : ∀ {α Γ} {us₁ us₂ : NeVal Γ α} {ns₁ ns₂}
-    (⇓ns₁ : QNeVal us₁ ⇓ ns₁) (⇓ns₂ : QNeVal us₂ ⇓ ns₂)
+  quote*⇓-det : ∀ {α Γ} {us₁ us₂ : NeVal Γ α} {ns₁ ns₂}
+    (⇓ns₁ : Quote* us₁ ⇓ ns₁) (⇓ns₂ : Quote* us₂ ⇓ ns₂)
     (us₁≡us₂ : us₁ ≡ us₂) →
     ns₁ ≡ ns₂
 
-  qNeVal⇓-det var⇓ var⇓ refl = refl
-  qNeVal⇓-det (app⇓ ⇓ns₁ ⇓n₁) (app⇓ ⇓ns₂ ⇓n₂) refl =
-    cong₂ app (qNeVal⇓-det ⇓ns₁ ⇓ns₂ refl) (qVal⇓-det ⇓n₁ ⇓n₂ refl)
+  quote*⇓-det var⇓ var⇓ refl = refl
+  quote*⇓-det (app⇓ ⇓ns₁ ⇓n₁) (app⇓ ⇓ns₂ ⇓n₂) refl =
+    cong₂ app (quote*⇓-det ⇓ns₁ ⇓ns₂ refl) (quote⇓-det ⇓n₁ ⇓n₂ refl)
 
 --   Nf t ⇓ n₁ → Nf t ⇓ n₂ → n₁ ≡ n₂
 
@@ -688,7 +598,7 @@ nf⇓-det : ∀ {α Γ} (t : Tm Γ α)
   n₁ ≡ n₂
 nf⇓-det t (nf⇓ ⇓u₁ ⇓n₁) (nf⇓ ⇓u₂ ⇓n₂)
   rewrite ⟦⟧⇓-det ⇓u₁ ⇓u₂ refl
-  = qVal⇓-det ⇓n₁ ⇓n₂ refl
+  = quote⇓-det ⇓n₁ ⇓n₂ refl
 
 
 --
@@ -817,13 +727,13 @@ mutual
   ⟨∙⟩⇓≤ η (lam⇓ ⇓v) = lam⇓ (⟦⟧⇓≤ η ⇓v)
 
 --
--- OPEs commute with wkVal.
+-- OPEs commute with val≤ wk.
 --
 
-wkVal∘val≤ : ∀ {Β Γ α β} (η : Β ≤ Γ) (u : Val Γ α) →
-  wkVal (val≤ η u) ≡ val≤ (≤lift {β} η) (wkVal u)
-wkVal∘val≤ η u = begin
-  wkVal (val≤ η u)
+wk∘val≤ : ∀ {Β Γ α β} (η : Β ≤ Γ) (u : Val Γ α) →
+  val≤ wk (val≤ η u) ≡ val≤ (≤lift {β} η) (val≤ wk u)
+wk∘val≤ η u = begin
+  val≤ wk (val≤ η u)
     ≡⟨⟩
   val≤ wk (val≤ η u)
     ≡⟨ val≤∘ wk η u ⟩
@@ -837,7 +747,7 @@ wkVal∘val≤ η u = begin
     ≡⟨ sym $ val≤∘ (≤lift η) wk u ⟩
   val≤ (≤lift η) (val≤ wk u)
     ≡⟨⟩
-  val≤ (≤lift η) (wkVal u)
+  val≤ (≤lift η) (val≤ wk u)
   ∎
   where open ≡-Reasoning
 
@@ -1027,30 +937,30 @@ mutual
 
 mutual
 
-  qVal≤ : ∀ {α Β Γ} (η : Β ≤ Γ) {u : Val Γ α} {n : Nf Γ α}
-    (⇓n : QVal u ⇓ n) →
-      QVal val≤ η u ⇓ nf≤ η n
+  quote≤ : ∀ {α Β Γ} (η : Β ≤ Γ) {u : Val Γ α} {n : Nf Γ α}
+    (⇓n : Quote u ⇓ n) →
+      Quote val≤ η u ⇓ nf≤ η n
 
-  qVal≤ η (⋆⇓ us ⇓ns) =
-    ⋆⇓ (neVal≤ η us) (qNeVal≤ η ⇓ns)
-  qVal≤ η (⇒⇓ {f = f} {u} {n} ⇓u ⇓n) =
+  quote≤ η (⋆⇓ us ⇓ns) =
+    ⋆⇓ (neVal≤ η us) (quote*≤ η ⇓ns)
+  quote≤ η (⇒⇓ {f = f} {u} {n} ⇓u ⇓n) =
     ⇒⇓ ⇓u′′′ ⇓n′
     where
-      ⇓u′ : val≤ (≤lift η) (wkVal f) ⟨∙⟩ ne (var zero) ⇓ val≤ (≤lift η) u
+      ⇓u′ : val≤ (≤lift η) (val≤ wk f) ⟨∙⟩ ne (var zero) ⇓ val≤ (≤lift η) u
       ⇓u′ = ⟨∙⟩⇓≤ (≤lift η) ⇓u
-      ⇓u′′′ : wkVal (val≤ η f) ⟨∙⟩ ne (var zero) ⇓ val≤ (≤lift η) u
+      ⇓u′′′ : val≤ wk (val≤ η f) ⟨∙⟩ ne (var zero) ⇓ val≤ (≤lift η) u
       ⇓u′′′ = subst (λ w → w ⟨∙⟩ ne (var zero) ⇓ val≤ (≤lift η) u)
-                    (sym $ wkVal∘val≤ η f) ⇓u′
-      ⇓n′ : QVal val≤ (≤lift η) u ⇓ nf≤ (≤lift η) n
-      ⇓n′ = qVal≤ (≤lift η) ⇓n
+                    (sym $ wk∘val≤ η f) ⇓u′
+      ⇓n′ : Quote val≤ (≤lift η) u ⇓ nf≤ (≤lift η) n
+      ⇓n′ = quote≤ (≤lift η) ⇓n
 
-  qNeVal≤ : ∀ {α Β Γ} (η : Β ≤ Γ) {us : NeVal Γ α} {ns : NeNf Γ α}
-    (⇓ns : QNeVal us ⇓ ns) →
-      QNeVal neVal≤ η us ⇓ neNf≤ η ns
+  quote*≤ : ∀ {α Β Γ} (η : Β ≤ Γ) {us : NeVal Γ α} {ns : NeNf Γ α}
+    (⇓ns : Quote* us ⇓ ns) →
+      Quote* neVal≤ η us ⇓ neNf≤ η ns
 
-  qNeVal≤ η var⇓ = var⇓
-  qNeVal≤ η (app⇓ ⇓ns ⇓n) =
-    app⇓ (qNeVal≤ η ⇓ns) (qVal≤ η ⇓n)
+  quote*≤ η var⇓ = var⇓
+  quote*≤ η (app⇓ ⇓ns ⇓n) =
+    app⇓ (quote*≤ η ⇓ns) (quote≤ η ⇓n)
 
 
 
@@ -1074,7 +984,7 @@ embNe≈≤ η us ns p = begin
 
 SCV : ∀ {α Γ} (u : Val Γ α) → Set
 SCV {⋆} {Γ} (ne us) = ∃ λ (ns : NeNf Γ ⋆) →
-  QNeVal us ⇓ ns
+  Quote* us ⇓ ns
   × embNeVal us ≈ embNeNf ns
 SCV {α ⇒ β} {Γ} u = ∀ {Β} (η : Β ≤ Γ) (v : Val Β α) (q : SCV v) →
   ∃ λ w → SCV w
@@ -1098,7 +1008,7 @@ mutual
   scv≤ :  ∀ {α Γ Β} (η : Β ≤ Γ) (u : Val Γ α) (p : SCV u) →
     SCV (val≤ η u)
   scv≤ {⋆}  η (ne us) (ns , p , q) =
-    neNf≤ η ns , qNeVal≤ η p , embNe≈≤ η us ns q
+    neNf≤ η ns , quote*≤ η p , embNe≈≤ η us ns q
   scv≤ {α ⇒ β} {Γ} {Β} η u p {Β′} η′ v q with p (η′ ● η) v q
   ... | w , r , ●⇓w , ●≈w =
     w , r , ∘⇓w , ∘≈w≤
@@ -1123,13 +1033,13 @@ mutual
   sce≤ η (u ∷ ρ) (p ∷ r) = scv≤ η u p ∷ sce≤ η ρ r
 
 --
--- embVal (wkVal u) ≈ embVal u [ ↑ ]
+-- embVal (val≤ wk u) ≈ embVal u [ ↑ ]
 --
 
-embVal∘wkVal : ∀ {α γ Γ} (u : Val Γ α) →
-  embVal (wkVal {α} u) ≈ embVal u [ ↑ {γ} ]
-embVal∘wkVal u = begin
-  embVal (wkVal u)
+embVal∘wk : ∀ {α γ Γ} (u : Val Γ α) →
+  embVal (val≤ wk {α} u) ≈ embVal u [ ↑ {γ} ]
+embVal∘wk u = begin
+  embVal (val≤ wk u)
     ≡⟨⟩
   embVal (val≤ wk u)
     ≈⟨ embVal∘≤ wk u ⟩
@@ -1143,14 +1053,14 @@ embVal∘wkVal u = begin
 
 
 --
--- ∃ λ n → QVal u ⇓ n × embVal u ≈ embNf n
--- QNeVal us ⇓ ns → embNeVal us ≈ embNeNf ns → SCV (ne us)
+-- ∃ λ n → Quote u ⇓ n × embVal u ≈ embNf n
+-- Quote* us ⇓ ns → embNeVal us ≈ embNeNf ns → SCV (ne us)
 --
 
 mutual
 
   all-qval : ∀ {α Γ} (u : Val Γ α) (p : SCV u) →
-    ∃ λ n → QVal u ⇓ n × embVal u ≈ embNf n
+    ∃ λ n → Quote u ⇓ n × embVal u ≈ embNf n
   all-qval {⋆} (ne us) (ns , ⇓ns , ≈ns) =
     ne ns , ⋆⇓ us ⇓ns , ≈ns
   all-qval {α ⇒ β} {Γ} u p
@@ -1166,8 +1076,8 @@ mutual
       embVal u
         ≈⟨ ≈η ⟩
       ƛ embVal u [ ↑ ] ∙ ø
-        ≈⟨ ≈congƛ (≈cong∙ (≈sym (embVal∘wkVal u)) ≈refl) ⟩
-      ƛ embVal (wkVal u) ∙ ø
+        ≈⟨ ≈congƛ (≈cong∙ (≈sym (embVal∘wk u)) ≈refl) ⟩
+      ƛ embVal (val≤ wk u) ∙ ø
         ≈⟨ ≈congƛ ≈v ⟩
       ƛ embVal v
         ≈⟨ ≈congƛ ≈m ⟩
@@ -1177,7 +1087,7 @@ mutual
       ∎
           
   qneval→scv-ne : ∀ {α Γ} (us : NeVal Γ α) (ns : NeNf Γ α) →
-    QNeVal us ⇓ ns → embNeVal us ≈ embNeNf ns → SCV (ne us)
+    Quote* us ⇓ ns → embNeVal us ≈ embNeNf ns → SCV (ne us)
   qneval→scv-ne {⋆} us ns ⇓ns ≈ns =
     ns , ⇓ns , ≈ns
   qneval→scv-ne {α ⇒ β} {Γ} us ns ⇓ns ≈ns {Β} η u p with all-qval u p
@@ -1199,14 +1109,14 @@ mutual
 
     r : SCV (ne (app us≤ u))
     r = qneval→scv-ne (app us≤ u) (app ns≤ m)
-                        (app⇓ (qNeVal≤ η ⇓ns) ⇓m) us∙u≈ns∙m
+                        (app⇓ (quote*≤ η ⇓ns) ⇓m) us∙u≈ns∙m
 
 embEnv∘id-env : ∀ {Γ} → embEnv (id-env {Γ}) ≈≈ ı
 embEnv∘id-env {[]} = ≈≈refl
 embEnv∘id-env {x ∷ Γ} = begin
-  ø ∷ embEnv (wkEnv id-env)
+  ø ∷ embEnv (env≤ wk id-env)
     ≡⟨⟩
-  ø ∷ embEnv (wkEnv id-env)
+  ø ∷ embEnv (env≤ wk id-env)
     ≈⟨ ≈≈cong∷ ≈refl (embEnv∘≤ wk id-env) ⟩
   ø ∷ embEnv id-env ⊙ (sub≤ ≤id ⊙ ↑)
     ≈⟨ ≈≈cong∷ ≈refl (≈≈cong⊙ ≈≈refl (≈≈cong⊙ ı≈≈sub≤-≤id ≈≈refl)) ⟩
@@ -1363,7 +1273,7 @@ nf⇓→nf t {n} (nf⇓ {u = u} ⇓u ⇓n)
   with all-qval u′ p′
 ... | n′ , ⇓n′ , ≈n′
   rewrite u′ ≡ u ∋ ⟦⟧⇓-det ⇓u′ ⇓u refl |
-          n′ ≡ n ∋ qVal⇓-det ⇓n′ ⇓n refl
+          n′ ≡ n ∋ quote⇓-det ⇓n′ ⇓n refl
   = refl
 
 
@@ -1412,7 +1322,7 @@ mutual
 
   stable*⇓ : ∀ {α Γ} (ns : NeNf Γ α) →
     ∃ λ (us : NeVal Γ α) →
-      ⟦ embNeNf ns ⟧ id-env ⇓ ne us × QNeVal us ⇓ ns
+      ⟦ embNeNf ns ⟧ id-env ⇓ ne us × Quote* us ⇓ ns
   stable*⇓ (var x) =
     var x , ⟦embVar⟧⇓ x , var⇓
   stable*⇓ (app ns n) with stable*⇓ ns | stable⇓ n

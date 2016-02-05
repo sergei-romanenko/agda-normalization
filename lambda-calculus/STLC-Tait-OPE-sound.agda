@@ -31,7 +31,7 @@ infix 4 _~_ _~~_
 
 _~_ : ∀ {α Γ} (u₁ u₂ : Val Γ α) → Set
 _~_ {⋆} (ne us₁) (ne us₂) =
-  ∃₂ λ ns₁ ns₂ → ns₁ ≡ ns₂ × QNeVal us₁ ⇓ ns₁ × QNeVal us₂ ⇓ ns₂
+  ∃₂ λ ns₁ ns₂ → ns₁ ≡ ns₂ × Quote* us₁ ⇓ ns₁ × Quote* us₂ ⇓ ns₂
 _~_ {α ⇒ β} {Γ} f₁ f₂ = ∀ {Β} (η : Β ≤ Γ) {u₁ u₂ : Val Β α} →
   u₁ ~ u₂ → ∃₂ λ w₁ w₂ →
     w₁ ~ w₂ × val≤ η f₁ ⟨∙⟩ u₁ ⇓ w₁ × val≤ η f₂ ⟨∙⟩ u₂ ⇓ w₂
@@ -84,7 +84,7 @@ mutual
   ~trans {⋆} {Γ} {ne us₁} {ne us₂} {ne us₃}
     (ns₁ , ns′ , ns₁≡ns′ , ⇓ns₁ , ⇓ns′)
     (ns′′ , ns₃ , ns′′≡ns₃ , ⇓ns′′ , ⇓ns₃)
-    rewrite ns′ ≡ ns′′ ∋ qNeVal⇓-det ⇓ns′ ⇓ns′′ refl
+    rewrite ns′ ≡ ns′′ ∋ quote*⇓-det ⇓ns′ ⇓ns′′ refl
     = ns₁ , ns₃ , trans ns₁≡ns′ ns′′≡ns₃ , ⇓ns₁ , ⇓ns₃
   ~trans {α ⇒ β} p q {Β} η {v₁} {v₂} v₁~v₂
     with p η (~refl′ v₁~v₂) | q η v₁~v₂
@@ -113,7 +113,7 @@ mutual
        val≤ η u₁ ~ val≤ η u₂
 ~≤ {⋆} η {ne us₁} {ne us₂} (ns₁ , ns₂ , ns₁≡ns₂ , ⇓ns₁ , ⇓ns₂) =
   neNf≤ η ns₁ , neNf≤ η ns₂ , cong (neNf≤ η) ns₁≡ns₂ ,
-    qNeVal≤ η ⇓ns₁ , qNeVal≤ η ⇓ns₂
+    quote*≤ η ⇓ns₁ , quote*≤ η ⇓ns₂
 ~≤ {α ⇒ β} η {u₁} {u₂} p {B} η′ {v₁} {v₂} v₁~v₂
   with p (η′ ● η) v₁~v₂
 ... | w₁ , w₂ , w₁~w₂ , ⇓w₁ , ⇓w₂
@@ -366,11 +366,11 @@ mutual
 
 --
 -- "Confluence": u₁ ~ u₂ →
---     ∃₂ λ n₁ n₂ → n₁ ≡ n₂ × QVal u₁ ⇓ n₁ × QVal u₂ ⇓ n₂
+--     ∃₂ λ n₁ n₂ → n₁ ≡ n₂ × Quote u₁ ⇓ n₁ × Quote u₂ ⇓ n₂
 --
 
   ~confl : ∀ {α Γ} (u₁ u₂ : Val Γ α) (u₁~u₂ : u₁ ~ u₂) →
-    ∃₂ λ n₁ n₂ → n₁ ≡ n₂ × QVal u₁ ⇓ n₁ × QVal u₂ ⇓ n₂
+    ∃₂ λ n₁ n₂ → n₁ ≡ n₂ × Quote u₁ ⇓ n₁ × Quote u₂ ⇓ n₂
 
   ~confl {⋆} (ne us₁) (ne us₂) (ns₁ , ns₂ , ns₁≡ns₂ , ⇓ns₁ , ⇓ns₂) =
     ne ns₁ , ne ns₂ , cong ne ns₁≡ns₂ , ⋆⇓ us₁ ⇓ns₁ , ⋆⇓ us₂ ⇓ns₂
@@ -384,8 +384,8 @@ mutual
       ⇒⇓ ⇓w₁ ⇓n₁ , ⇒⇓ ⇓w₂ ⇓n₂
 
   confl-ne→~ : ∀ {α Γ}
-    {us₁ : NeVal Γ α} {ns₁} (⇓ns₁ : QNeVal us₁ ⇓ ns₁)
-    {us₂ : NeVal Γ α} {ns₂} (⇓ns₂ : QNeVal us₂ ⇓ ns₂)
+    {us₁ : NeVal Γ α} {ns₁} (⇓ns₁ : Quote* us₁ ⇓ ns₁)
+    {us₂ : NeVal Γ α} {ns₂} (⇓ns₂ : Quote* us₂ ⇓ ns₂)
     (ns₁≡ns₂ : ns₁ ≡ ns₂) →
     ne us₁ ~ ne us₂
   confl-ne→~ {⋆} {Γ} {us₁} {ns₁} ⇓ns₁ {us₂} {ns₂} ⇓ns₂ ns₁≡ns₂ =
@@ -396,8 +396,8 @@ mutual
   ... | n₁ , n₂ , n₁≡n₂ , ⇓n₁ , ⇓n₂
     with ne (app (neVal≤ η us₁) v₁) ~ ne (app (neVal≤ η us₂) v₂) ∋
       confl-ne→~ {β}
-           (app⇓ (qNeVal≤ η ⇓ns₁) ⇓n₁)
-           (app⇓ (qNeVal≤ η ⇓ns₂) ⇓n₂)
+           (app⇓ (quote*≤ η ⇓ns₁) ⇓n₁)
+           (app⇓ (quote*≤ η ⇓ns₂) ⇓n₂)
            (cong₂ app (cong (neNf≤ η) ns₁≡ns₂) n₁≡n₂)
   ... | us₁-v₁~us₂-v₂
     = ne (app (neVal≤ η us₁) v₁) , ne (app (neVal≤ η us₂) v₂) ,
@@ -428,6 +428,6 @@ sound {α} {Γ} {t₁} {t₂} t₁≈t₂
 ... | n₁ , n₂ , n₁≡n₂ , ⇓n₁ , ⇓n₂
   rewrite u₁ ≡ w₁ ∋ ⟦⟧⇓-det ⇓u₁ ⇓w₁ refl |
           u₂ ≡ w₂ ∋ ⟦⟧⇓-det ⇓u₂ ⇓w₂ refl |
-          m₁ ≡ n₁ ∋ qVal⇓-det ⇓m₁ ⇓n₁ refl |
-          m₂ ≡ n₂ ∋ qVal⇓-det ⇓m₂ ⇓n₂ refl
+          m₁ ≡ n₁ ∋ quote⇓-det ⇓m₁ ⇓n₁ refl |
+          m₂ ≡ n₂ ∋ quote⇓-det ⇓m₂ ⇓n₂ refl
   = n₁≡n₂
