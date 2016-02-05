@@ -409,7 +409,10 @@ sound {α} {Γ} {t₁} {t₂} t₁≈t₂
 ... | w₁ , w₂ , w₁~w₂ , ⇓w₁ , ⇓w₂
   with ~confl w₁ w₂ w₁~w₂
 ... | n₁ , n₂ , n₁≡n₂ , ⇓n₁ , ⇓n₂
-  rewrite u₁ ≡ w₁ ∋ ⟦⟧⇓-det ⇓u₁ ⇓w₁ refl |
+  with nf t₁ & nf⇓ ⇓u₁ ⇓m₁ | nf t₂ & nf⇓ ⇓u₂ ⇓m₂
+... | n′ , n′≡m₁ | n′′ , n′′≡m₂
+  rewrite n′ ≡ m₁ ∋ n′≡m₁ | n′′ ≡ m₂ ∋ n′′≡m₂ |
+          u₁ ≡ w₁ ∋ ⟦⟧⇓-det ⇓u₁ ⇓w₁ refl |
           u₂ ≡ w₂ ∋ ⟦⟧⇓-det ⇓u₂ ⇓w₂ refl |
           m₁ ≡ n₁ ∋ quote⇓-det ⇓m₁ ⇓n₁ refl |
           m₂ ≡ n₂ ∋ quote⇓-det ⇓m₂ ⇓n₂ refl
