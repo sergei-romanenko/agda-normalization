@@ -1,25 +1,7 @@
-module STLC-Tait-OPE-sound-rec where
+module STLC-Tait-OPE.Recursive where
 
-open import Data.List as List
-  hiding ([_])
-open import Data.Empty
-open import Data.Unit
-  using (⊤; tt)
-open import Data.Product
-
-open import Function
-import Function.Related as Related
-
-open import Relation.Nullary
-open import Relation.Binary.PropositionalEquality as P
-  renaming ([_] to ≡[_])
-
-open import Relation.Binary
-  using (Setoid)
-
-import Relation.Binary.EqReasoning as EqReasoning
-
-open import STLC-Tait-OPE hiding (nf; stable)
+open import STLC-Tait-OPE.Util
+open import STLC-Tait-OPE.Syntax
 
 --
 -- Recursive normalizer.
@@ -88,6 +70,14 @@ nf-SKK∙I = refl
 --
 -- Stability: nf (embNf n) ≡ n .
 --
+
+var≤∘suc : ∀ {α γ Β Γ} (η : Β ≤ γ ∷ Γ) (x : Var Γ α) →
+  var≤ η (suc x) ≡ var≤ (η ● wk) x
+var≤∘suc (≤weak η) x =
+  cong suc (var≤∘suc η x)
+var≤∘suc (≤lift η) x
+  rewrite η ● ≤id ≡ η ∋ η●≤id η
+  = refl
 
 ⟦⟧∘embVar≤ : ∀ {α Β Γ} (η : Β ≤ Γ) (x : Var Γ α) →
   ⟦ embVar x ⟧ (env≤ η id-env) ≡ ne (var (var≤ η x))

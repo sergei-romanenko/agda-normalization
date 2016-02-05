@@ -1,26 +1,9 @@
-module STLC-Tait-OPE-sound where
+module STLC-Tait-OPE.Sound where
 
-open import Data.List as List
-  hiding ([_])
-
-open import Data.Empty
-open import Data.Unit
-  using (⊤; tt)
-open import Data.Product
-
-open import Function
-import Function.Related as Related
-
-open import Relation.Nullary
-open import Relation.Binary.PropositionalEquality as P
-  renaming ([_] to ≡[_])
-
-open import Relation.Binary
-  using (Setoid)
-
-import Relation.Binary.EqReasoning as EqReasoning
-
-open import STLC-Tait-OPE
+open import STLC-Tait-OPE.Util
+open import STLC-Tait-OPE.Syntax
+open import STLC-Tait-OPE.StrongComputability
+open import STLC-Tait-OPE.StructurallyRecursive
 
 --
 -- Soundness: t₁ ≈ t₂ → nf t₁ ≡ nf t₂
@@ -420,7 +403,7 @@ sound : ∀ {α Γ} {t₁ t₂ : Tm Γ α} →
 sound {α} {Γ} {t₁} {t₂} t₁≈t₂
   with all-scv t₁ id-env sce-id-env | all-scv t₂ id-env sce-id-env
 ... | u₁ , p₁ , ⇓u₁ , ≈u₁ | u₂ , p₂ , ⇓u₂ , ≈u₂
-  with all-qval u₁ p₁ | all-qval u₂ p₂
+  with all-quote u₁ p₁ | all-quote u₂ p₂
 ... | m₁ , ⇓m₁ , ≈m₁ | m₂ , ⇓m₂ , ≈m₂
   with ~cong⟦⟧ t₁≈t₂ ~~refl-id-env
 ... | w₁ , w₂ , w₁~w₂ , ⇓w₁ , ⇓w₂
