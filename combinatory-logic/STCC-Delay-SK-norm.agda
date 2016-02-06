@@ -117,30 +117,47 @@ record Delay⇓ {A : Set} (P : A → Set) (a? : Delay ∞ A) : Set where
 -- Monotonicity.
 
 map⇓ : ∀ {A B} {a : A} {a? : Delay ∞ A}
-  (f : A → B) (a⇓ : a? ⇓ a) → (f <$> a?) ⇓ f a
+  (f : A → B) (⇓a : a? ⇓ a) → (f <$> a?) ⇓ f a
 map⇓ f now⇓        = now⇓
 map⇓ f (later⇓ a⇓) = later⇓ (map⇓ f a⇓)
 
 ⇓bind : ∀ {A B} (f : A → Delay ∞ B)
-  {?a : Delay ∞ A} {a : A} → ?a ⇓ a →
-  {b : B} → (?a >>= f) ⇓ b → f a ⇓ b
+  {a? : Delay ∞ A} {a : A} → a? ⇓ a →
+  {b : B} → (a? >>= f) ⇓ b → f a ⇓ b
 ⇓bind f now⇓ q = q
 ⇓bind f (later⇓ p) (later⇓ q) = ⇓bind f p q
 
-bind⇓ : ∀{A B} (f : A → Delay ∞ B)
-       {?a : Delay ∞ A} {a : A} → ?a ⇓ a →
-       {b : B} → f a ⇓ b → (?a >>= f) ⇓ b
-bind⇓ f now⇓ q = q
-bind⇓ f (later⇓ p) q = later⇓ (bind⇓ f p q)
+bind⇓ : ∀ {A B} (f : A → Delay ∞ B)
+  {a? a} (⇓a : a? ⇓ a) {fa} (⇓fa : f a ⇓ fa) →
+  (a? >>= f) ⇓ fa
+bind⇓ f now⇓ ⇓fa = ⇓fa
+bind⇓ f (later⇓ ⇓a) ⇓fa = later⇓ (bind⇓ f ⇓a ⇓fa)
 
->>=⇓→∃ : ∀{A B} (f : A → Delay ∞ B)
-  (?a : Delay ∞ A) →
-  {b : B} → (?a >>= f) ⇓ b → ∃ λ a → ?a ⇓ a × f a ⇓ b
+bind⇓₂ : ∀ {A B C} (f : A → B → Delay ∞ C)
+  {a? a} (⇓a : a? ⇓ a) {b? b} (⇓b : b? ⇓ b)
+  {fab : C}  (⇓fab : f a b ⇓ fab) →
+  (a? >>= (λ a → b? >>= (λ b → f a b))) ⇓ fab
+bind⇓₂ f now⇓ now⇓ ⇓fab = ⇓fab
+bind⇓₂ f now⇓ (later⇓ ⇓b) ⇓fab = later⇓ (bind⇓₂ f now⇓ ⇓b ⇓fab)
+bind⇓₂ f (later⇓ ⇓a) ⇓b ⇓fab = later⇓ (bind⇓₂ f ⇓a ⇓b ⇓fab)
+
+>>=⇓→∃ : ∀ {A B} (f : A → Delay ∞ B)
+  (a? : Delay ∞ A) →
+  {b : B} → (a? >>= f) ⇓ b → ∃ λ a → a? ⇓ a × f a ⇓ b
 >>=⇓→∃ f (now a) ⇓b = a , now⇓ , ⇓b
 >>=⇓→∃ f (later a∞) {b} (later⇓ ⇓b)
   with >>=⇓→∃ f (force a∞) {b} ⇓b
 ... | a , ⇓a , fa⇓b = a , later⇓ ⇓a , fa⇓b
 
+--
+-- Determinism: a? ⇓ a₁ → a? ⇓ a₂ → a₁ ≡ a₁
+-- 
+
+⇓-det : ∀ {A} {a? : Delay ∞ A}
+  {a₁} (⇓a₁ : a? ⇓ a₁) {a₂} (⇓a₂ : a? ⇓ a₂) → 
+  a₁ ≡ a₂
+⇓-det now⇓ now⇓ = refl
+⇓-det (later⇓ ⇓a₁) (later⇓ ⇓a₂) = ⇓-det ⇓a₁ ⇓a₂
 
 --
 -- Types.
@@ -175,6 +192,38 @@ KI α β = K ∙ (S ∙ K ∙ K {β = α})
 
 III : Tm (⋆ ⇒ ⋆)
 III = I {⋆ ⇒ ⋆} ∙ (I {⋆ ⇒ ⋆} ∙ I {⋆})
+
+--
+-- Convertibility
+--
+
+infix 4 _≈_
+
+data _≈_  : {α : Ty} (x y : Tm α) → Set where
+  ≈refl  : ∀ {α} {x : Tm α} →
+             x ≈ x
+  ≈sym   : ∀ {α} {x y : Tm α} →
+             x ≈ y → y ≈ x
+  ≈trans : ∀ {α} {x y z : Tm α} →
+             x ≈ y → y ≈ z → x ≈ z
+  ≈K     : ∀ {α β} {x : Tm α} {y : Tm β} →
+             K ∙ x ∙ y ≈ x
+  ≈S     : ∀ {α β γ} {x : Tm (α ⇒ β ⇒ γ)} {y : Tm (α ⇒ β)} {z : Tm α} →
+             S ∙ x ∙ y ∙ z ≈ (x ∙ z) ∙ (y ∙ z)
+  ≈cong∙ : ∀ {α β} {x₁ x₂ : Tm (α ⇒ β)} {y₁ y₂ : Tm α} →
+             x₁ ≈ x₂ → y₁ ≈ y₂ → x₁ ∙ y₁ ≈ x₂ ∙ y₂
+
+≈setoid : {α : Ty} → Setoid _ _
+
+≈setoid {α} = record
+  { Carrier = Tm α
+  ; _≈_ = _≈_
+  ; isEquivalence = record
+    { refl = ≈refl
+    ; sym = ≈sym
+    ; trans = ≈trans } }
+
+module ≈-Reasoning {α : Ty} = EqReasoning (≈setoid {α})
 
 --
 -- Normal forms.
@@ -291,30 +340,22 @@ mutual
       S1 u , now⇓ , λ v q →
         S2 u v , now⇓ , λ w r →
           all-comp-S3 u p v q w r          
-  all-comp (x ∙ y)=
-    let
-      u , ⇓u , p = all-comp x
-      v , ⇓v , q = all-comp y
-      uv , ⇓uv , pq = p v q
-      pq⇓ : (⟦ x ⟧ >>= λ u₁ → ⟦ y ⟧ >>= λ v₁ → u₁ ⟨∙⟩ v₁) ⇓ uv
-      pq⇓ = bind⇓ (λ u₁ → ⟦ y ⟧ >>= (λ v₁ → u₁ ⟨∙⟩ v₁))
-                  ⇓u
-                  (bind⇓ (λ v₁ → u ⟨∙⟩ v₁) ⇓v ⇓uv)
-    in uv , pq⇓ , pq
+  all-comp (x ∙ y)
+    with all-comp x | all-comp y
+  ... | u , ⇓u , p | v , ⇓v , q
+    with p v q
+  ... | uv , ⇓uv , pq
+    = uv , bind⇓₂ _⟨∙⟩_ ⇓u ⇓v ⇓uv , pq
 
   all-comp-S3 : ∀ {α β γ} (u : Nf (α ⇒ β ⇒ γ)) (p : Stab u)
     (v : Nf (α ⇒ β)) (q  : Stab v) (w  : Nf α) (r  : Stab w) →
       Comp (later (∞S u v w))
-  all-comp-S3 u p v q w r =
-    let
-      uw , ⇓uw , pr = p w r
-      vw , ⇓vw , qr = q w r
-      uwvw , ⇓uwvw , prqr = pr vw qr
-      ⇓uwvwr : (u ⟨∙⟩ w >>= (λ uw₁ → v ⟨∙⟩ w >>= λ vw₁ →  uw₁ ⟨∙⟩ vw₁)) ⇓ uwvw
-      ⇓uwvwr = bind⇓ (λ uw₁ → (v ⟨∙⟩ w) >>= (λ vw₁ → uw₁ ⟨∙⟩ vw₁))
-                     ⇓uw
-                     (bind⇓ (λ vw₁ → uw ⟨∙⟩ vw₁) ⇓vw ⇓uwvw)
-    in uwvw , later⇓ ⇓uwvwr , prqr
+  all-comp-S3 u p v q w r
+    with p w r | q w r
+  ... | uw , ⇓uw , pr | vw , ⇓vw , qr
+    with pr vw qr
+  ... | uwvw , ⇓uwvw , prqr
+    = uwvw , later⇓ (bind⇓₂ _⟨∙⟩_ ⇓uw ⇓vw ⇓uwvw) , prqr
 
 eval : ∀ {α} (x : Tm α) → Nf α
 eval x = proj₁ (all-comp x)
@@ -327,3 +368,32 @@ norm = reify ∘ eval
 
 norm-III : norm III ≡ S ∙ K ∙ K
 norm-III = refl
+
+--
+-- Soundness: the normal forms of two convertible terms are equal
+--     x₁ ≈ x₂ → norm x₁ ≡ norm x₂
+--
+
+eval-sound : ∀ {α} {x y : Tm α} → x ≈ y → eval x ≡ eval y
+
+eval-sound ≈refl = refl
+eval-sound (≈sym y≈x) =
+  sym $ eval-sound y≈x
+eval-sound (≈trans x≈y y≈z) =
+  trans (eval-sound x≈y) (eval-sound y≈z)
+eval-sound ≈K = refl
+eval-sound ≈S = refl
+eval-sound (≈cong∙ {α} {β} {x₁} {x₂} {y₁} {y₂} x₁≈x₂ y₁≈y₂)
+  with eval-sound x₁≈x₂ | eval-sound y₁≈y₂
+... | u₁≡u₂ | v₁≡v₂
+  with all-comp x₁ | all-comp x₂ | all-comp y₁ | all-comp y₂
+... | u₁ , ⇓u₁ , p₁ | u₂ , ⇓u₂ , p₂ | v₁ , ⇓v₁ , q₁ | v₂ , ⇓v₂ , q₂
+  with p₁ v₁ q₁ | p₂ v₂ q₂
+... | w₁ , ⇓w₁ , r₁ | w₂ , ⇓w₂ , r₂
+  rewrite u₁≡u₂ | v₁≡v₂
+  = ⇓-det ⇓w₁ ⇓w₂
+
+norm-sound : ∀ {α} {x₁ x₂ : Tm α} →
+  x₁ ≈ x₂ → norm x₁ ≡ norm x₂
+norm-sound x₁≈x₂ =
+  cong reify (eval-sound x₁≈x₂)
