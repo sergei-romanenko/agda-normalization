@@ -150,13 +150,6 @@ bind⇓₂ f now⇓ now⇓ ⇓fab = ⇓fab
 bind⇓₂ f now⇓ (later⇓ ⇓b) ⇓fab = later⇓ (bind⇓₂ f now⇓ ⇓b ⇓fab)
 bind⇓₂ f (later⇓ ⇓a) ⇓b ⇓fab = later⇓ (bind⇓₂ f ⇓a ⇓b ⇓fab)
 
->>=⇓→∃ : ∀ {A B} (f : A → Delay ∞ B)
-  (a? : Delay ∞ A) →
-  {b : B} → (a? >>= f) ⇓ b → ∃ λ a → a? ⇓ a × f a ⇓ b
->>=⇓→∃ f (now a) ⇓b = a , now⇓ , ⇓b
->>=⇓→∃ f (later a∞) {b} (later⇓ ⇓b)
-  with >>=⇓→∃ f (force a∞) {b} ⇓b
-... | a , ⇓a , fa⇓b = a , later⇓ ⇓a , fa⇓b
 
 --
 -- Determinism: a? ⇓ a₁ → a? ⇓ a₂ → a₁ ≡ a₁
@@ -323,44 +316,55 @@ dnorm-III⇓ = later⇓ (later⇓ now⇓)
 -- "Strong computability" of normal forms.
 --
 
-mutual
-
-  SC : ∀ {α} (u? : Delay ∞ (Nf α)) → Set
-  SC {α} u? = ∃ λ u → u? ⇓ u × SCN u
-
-  SCN : ∀ {α} (u : Nf α) → Set
-  SCN {⋆} u = ⊤
-  SCN {α ⇒ β} u = ∀ (v : Nf α) (q : SCN v) → SC {β} (u ⟨∙⟩ v)
+SC : ∀ {α} (u : Nf α) → Set
+SC {⋆} u = ⊤
+SC {α ⇒ β} u = ∀ (v : Nf α) (q : SC v) →
+    ∃ λ w → u ⟨∙⟩ v ⇓ w × reify u ∙ reify v ≈ reify w × SC w
 
 mutual
 
-  all-sc : ∀ {α} (x : Tm α) → SC ⟦ x ⟧
-
+  all-sc : ∀ {α} (x : Tm α) → ∃ λ u → ⟦ x ⟧ ⇓ u × SC u
   all-sc K =
     K0 , now⇓ , λ u p →
-      K1 u , now⇓ ,
-        λ v q → u , now⇓ , p
+      K1 u , now⇓ , ≈refl , λ v q →
+        u , now⇓ , ≈K , p
   all-sc S =
     S0 , now⇓ , λ u p →
-      S1 u , now⇓ , λ v q →
-        S2 u v , now⇓ , λ w r →
-          all-sc-S3 u p v q w r          
+      S1 u , now⇓ , ≈refl , λ v q →
+        S2 u v , now⇓ , ≈refl ,
+          all-sc-S3 u p v q
   all-sc (x ∙ y)
     with all-sc x | all-sc y
   ... | u , ⇓u , p | v , ⇓v , q
     with p v q
-  ... | uv , ⇓uv , pq
+  ... | uv , ⇓uv , ≈uv , pq
     = uv , bind⇓₂ _⟨∙⟩_ ⇓u ⇓v ⇓uv , pq
 
-  all-sc-S3 : ∀ {α β γ} (u : Nf (α ⇒ β ⇒ γ)) (p : SCN u)
-    (v : Nf (α ⇒ β)) (q  : SCN v) (w  : Nf α) (r  : SCN w) →
-      SC (later (∞S u v w))
+  all-sc-S3 : ∀ {α} {β} {γ}
+    (u : Nf (α ⇒ β ⇒ γ)) (p : SC u) (v : Nf (α ⇒ β)) (q : SC v) →
+    SC (S2 u v)
   all-sc-S3 u p v q w r
     with p w r | q w r
-  ... | uw , ⇓uw , pr | vw , ⇓vw , qr
+  ... | uw , ⇓uw , ≈uw , pr | vw , ⇓vw , ≈vw , qr
     with pr vw qr
-  ... | uwvw , ⇓uwvw , prqr
-    = uwvw , later⇓ (bind⇓₂ _⟨∙⟩_ ⇓uw ⇓vw ⇓uwvw) , prqr
+  ... | uwvw , ⇓uwvw , ≈uwvw , prqr
+    = uwvw , later⇓ (bind⇓₂ _⟨∙⟩_ ⇓uw ⇓vw ⇓uwvw) , suvw≈uwvw , prqr
+    where
+    open ≈-Reasoning
+    suvw≈uwvw : S ∙ reify u ∙ reify v ∙ reify w ≈ reify uwvw
+    suvw≈uwvw = begin
+      S ∙ reify u ∙ reify v ∙ reify w
+        ≈⟨ ≈S ⟩
+      (reify u ∙ reify w) ∙ (reify v ∙ reify w)
+        ≈⟨ ≈cong∙ ≈uw ≈vw ⟩
+      reify uw ∙ reify vw
+        ≈⟨ ≈uwvw ⟩
+      reify uwvw
+      ∎
+
+--
+-- Normalizer.
+--
 
 eval : ∀ {α} (x : Tm α) → Nf α
 eval x = proj₁ (all-sc x)
@@ -378,6 +382,27 @@ norm-III = refl
 -- Completeness: x ≈ norm x
 -- (Terms are convertible to their normal forms.)
 --
+
+norm-complete : ∀ {α} (x : Tm α) → x ≈ norm x
+norm-complete K = ≈refl
+norm-complete S = ≈refl
+norm-complete (x ∙ y)
+  with all-sc x | inspect all-sc x | all-sc y | inspect all-sc y
+... | u , ⇓u , p | ≡[ all-sc-x≡ ] | v , ⇓v , q | ≡[ all-sc-y≡ ]
+  with all-sc (x ∙ y) | p v q
+... | w , ⇓w , pq | w′ , ⇓w′ , ≈w′ , pq′
+  rewrite ⇓-det ⇓w′ (⇓bind₂ _⟨∙⟩_ ⇓u ⇓v ⇓w)
+  = begin
+  x ∙ y
+    ≈⟨ ≈cong∙ (norm-complete x) (norm-complete y) ⟩
+  norm x ∙ norm y
+    ≡⟨ cong₂ _∙_ (cong (reify ∘ proj₁) all-sc-x≡)
+                 (cong (reify ∘ proj₁) all-sc-y≡) ⟩
+  reify u ∙ reify v
+    ≈⟨ ≈w′ ⟩
+  reify w ∎
+  where
+  open ≈-Reasoning
 
 
 --
