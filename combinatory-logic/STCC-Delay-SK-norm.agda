@@ -40,6 +40,8 @@ open import Category.Monad
 
 open import Data.Nat
 open import Data.Empty
+open import Data.Unit
+  using (⊤; tt)
 open import Data.Product
 
 open import Function
@@ -122,10 +124,17 @@ map⇓ f now⇓        = now⇓
 map⇓ f (later⇓ a⇓) = later⇓ (map⇓ f a⇓)
 
 ⇓bind : ∀ {A B} (f : A → Delay ∞ B)
-  {a? : Delay ∞ A} {a : A} → a? ⇓ a →
-  {b : B} → (a? >>= f) ⇓ b → f a ⇓ b
-⇓bind f now⇓ q = q
-⇓bind f (later⇓ p) (later⇓ q) = ⇓bind f p q
+  {a? : Delay ∞ A} {a : A} (⇓a : a? ⇓ a)
+  {fa : B} (⇓fa : (a? >>= f) ⇓ fa) → f a ⇓ fa
+⇓bind f now⇓ ⇓fa = ⇓fa
+⇓bind f (later⇓ ⇓a) (later⇓ ⇓fa) = ⇓bind f ⇓a ⇓fa
+
+⇓bind₂ : ∀ {A B C} (f : A → B → Delay ∞ C)
+  {a? a} (⇓a : a? ⇓ a) {b? b} (⇓b : b? ⇓ b)
+  {fab : C} (⇓fab : (a? >>= (λ a → b? >>= f a)) ⇓ fab) → f a b ⇓ fab
+⇓bind₂ f now⇓ now⇓ ⇓fab = ⇓fab
+⇓bind₂ f now⇓ (later⇓ ⇓b) (later⇓ ⇓fab) = ⇓bind₂ f now⇓ ⇓b ⇓fab
+⇓bind₂ f (later⇓ ⇓a) ⇓b (later⇓ ⇓fab) = ⇓bind₂ f ⇓a ⇓b ⇓fab
 
 bind⇓ : ∀ {A B} (f : A → Delay ∞ B)
   {a? a} (⇓a : a? ⇓ a) {fa} (⇓fa : f a ⇓ fa) →
@@ -136,7 +145,7 @@ bind⇓ f (later⇓ ⇓a) ⇓fa = later⇓ (bind⇓ f ⇓a ⇓fa)
 bind⇓₂ : ∀ {A B C} (f : A → B → Delay ∞ C)
   {a? a} (⇓a : a? ⇓ a) {b? b} (⇓b : b? ⇓ b)
   {fab : C}  (⇓fab : f a b ⇓ fab) →
-  (a? >>= (λ a → b? >>= (λ b → f a b))) ⇓ fab
+  (a? >>= (λ a → b? >>= f a)) ⇓ fab
 bind⇓₂ f now⇓ now⇓ ⇓fab = ⇓fab
 bind⇓₂ f now⇓ (later⇓ ⇓b) ⇓fab = later⇓ (bind⇓₂ f now⇓ ⇓b ⇓fab)
 bind⇓₂ f (later⇓ ⇓a) ⇓b ⇓fab = later⇓ (bind⇓₂ f ⇓a ⇓b ⇓fab)
@@ -284,12 +293,12 @@ infixl 5 _⟨∙⟩_
 
 mutual
 
-  _⟨∙⟩_ : ∀ {α β i} (u : Nf (α ⇒ β)) (w : Nf α) → Delay i (Nf β)
+  _⟨∙⟩_ : ∀ {α β i} (u : Nf (α ⇒ β)) (v : Nf α) → Delay i (Nf β)
 
-  K0 ⟨∙⟩ w = now (K1 w)
-  K1 u ⟨∙⟩ w = now u
-  S0 ⟨∙⟩ w = now (S1 w)
-  S1 u ⟨∙⟩ w = now (S2 u w)
+  K0 ⟨∙⟩ u = now (K1 u)
+  K1 u ⟨∙⟩ v = now u
+  S0 ⟨∙⟩ u = now (S1 u)
+  S1 u ⟨∙⟩ v = now (S2 u v)
   S2 u v ⟨∙⟩ w = later (∞S u v w)
 
   ∞S : ∀ {α β γ i}
@@ -311,46 +320,42 @@ dnorm-III⇓ : dnorm III ⇓ (S ∙ K ∙ K)
 dnorm-III⇓ = later⇓ (later⇓ now⇓)
 
 --
--- Computability of normal forms.
+-- "Strong computability" of normal forms.
 --
 
 mutual
 
-  -- "Computability"
+  SC : ∀ {α} (u? : Delay ∞ (Nf α)) → Set
+  SC {α} u? = ∃ λ u → u? ⇓ u × SCN u
 
-  Comp : ∀ {α} (u? : Delay ∞ (Nf α)) → Set
-  Comp {α} u? = ∃ λ u → u? ⇓ u × Stab u
-
-  -- "Stability"
-
-  Stab : ∀ {α} (u : Nf α) → Set
-  Stab {⋆} ()
-  Stab {α ⇒ β} u = ∀ (v : Nf α) (q : Stab v) → Comp {β} (u ⟨∙⟩ v)
+  SCN : ∀ {α} (u : Nf α) → Set
+  SCN {⋆} u = ⊤
+  SCN {α ⇒ β} u = ∀ (v : Nf α) (q : SCN v) → SC {β} (u ⟨∙⟩ v)
 
 mutual
 
-  all-comp : ∀ {α} (x : Tm α) → Comp ⟦ x ⟧
+  all-sc : ∀ {α} (x : Tm α) → SC ⟦ x ⟧
 
-  all-comp K =
+  all-sc K =
     K0 , now⇓ , λ u p →
       K1 u , now⇓ ,
         λ v q → u , now⇓ , p
-  all-comp S =
+  all-sc S =
     S0 , now⇓ , λ u p →
       S1 u , now⇓ , λ v q →
         S2 u v , now⇓ , λ w r →
-          all-comp-S3 u p v q w r          
-  all-comp (x ∙ y)
-    with all-comp x | all-comp y
+          all-sc-S3 u p v q w r          
+  all-sc (x ∙ y)
+    with all-sc x | all-sc y
   ... | u , ⇓u , p | v , ⇓v , q
     with p v q
   ... | uv , ⇓uv , pq
     = uv , bind⇓₂ _⟨∙⟩_ ⇓u ⇓v ⇓uv , pq
 
-  all-comp-S3 : ∀ {α β γ} (u : Nf (α ⇒ β ⇒ γ)) (p : Stab u)
-    (v : Nf (α ⇒ β)) (q  : Stab v) (w  : Nf α) (r  : Stab w) →
-      Comp (later (∞S u v w))
-  all-comp-S3 u p v q w r
+  all-sc-S3 : ∀ {α β γ} (u : Nf (α ⇒ β ⇒ γ)) (p : SCN u)
+    (v : Nf (α ⇒ β)) (q  : SCN v) (w  : Nf α) (r  : SCN w) →
+      SC (later (∞S u v w))
+  all-sc-S3 u p v q w r
     with p w r | q w r
   ... | uw , ⇓uw , pr | vw , ⇓vw , qr
     with pr vw qr
@@ -358,7 +363,7 @@ mutual
     = uwvw , later⇓ (bind⇓₂ _⟨∙⟩_ ⇓uw ⇓vw ⇓uwvw) , prqr
 
 eval : ∀ {α} (x : Tm α) → Nf α
-eval x = proj₁ (all-comp x)
+eval x = proj₁ (all-sc x)
 
 eval-III : eval III ≡ S2 K0 K0
 eval-III = refl
@@ -368,6 +373,12 @@ norm = reify ∘ eval
 
 norm-III : norm III ≡ S ∙ K ∙ K
 norm-III = refl
+
+--
+-- Completeness: x ≈ norm x
+-- (Terms are convertible to their normal forms.)
+--
+
 
 --
 -- Soundness: the normal forms of two convertible terms are equal
@@ -386,7 +397,7 @@ eval-sound ≈S = refl
 eval-sound (≈cong∙ {α} {β} {x₁} {x₂} {y₁} {y₂} x₁≈x₂ y₁≈y₂)
   with eval-sound x₁≈x₂ | eval-sound y₁≈y₂
 ... | u₁≡u₂ | v₁≡v₂
-  with all-comp x₁ | all-comp x₂ | all-comp y₁ | all-comp y₂
+  with all-sc x₁ | all-sc x₂ | all-sc y₁ | all-sc y₂
 ... | u₁ , ⇓u₁ , p₁ | u₂ , ⇓u₂ , p₂ | v₁ , ⇓v₁ , q₁ | v₂ , ⇓v₂ , q₂
   with p₁ v₁ q₁ | p₂ v₂ q₂
 ... | w₁ , ⇓w₁ , r₁ | w₂ , ⇓w₂ , r₂

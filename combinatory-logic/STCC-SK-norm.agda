@@ -241,7 +241,7 @@ norm-III : norm III ≡ S ∙ K ∙ K
 norm-III = refl
 
 --
--- Completeness: the normal forms of two convertible terms are equal
+-- Soundness: the normal forms of two convertible terms are equal
 --     x ≈ y → norm x ≡ norm y
 --
 
@@ -265,13 +265,13 @@ norm-III = refl
   ∎
   where open ≡-Reasoning
 
-norm-complete : ∀ {α} {x y : Tm α} →
+norm-sound : ∀ {α} {x y : Tm α} →
   x ≈ y → norm x ≡ norm y
-norm-complete x≈y =
+norm-sound x≈y =
   cong ⟪_⟫ (≈→⟦⟧≡⟦⟧ x≈y)
 
 --
--- Now we are going to prove "soundness" -
+-- Now we are going to prove "completeness" -
 -- normalization preserves convertibility:
 --     x ≈ norm x
 -- 
@@ -319,17 +319,17 @@ all-H (x ∙ y) =
   |∙| ⟦ x ⟧ (all-H x) ⟦ y ⟧ (all-H y)
 
 --
--- Soundness: terms are convertible to their normal forms
+-- Completeness: terms are convertible to their normal forms
 --     x ≈ norm x
 -- 
 
-norm-sound : ∀ {α} (x : Tm α) → x ≈ norm x
+norm-complete : ∀ {α} (x : Tm α) → x ≈ norm x
 
-norm-sound K = ≈refl
-norm-sound S = ≈refl
-norm-sound (x ∙ y) = begin
+norm-complete K = ≈refl
+norm-complete S = ≈refl
+norm-complete (x ∙ y) = begin
   x ∙ y
-    ≈⟨ ∙-cong (norm-sound x) (norm-sound y) ⟩
+    ≈⟨ ∙-cong (norm-complete x) (norm-complete y) ⟩
   norm x ∙ norm y
     ≡⟨⟩
   ⟪ ⟦ x ⟧ ⟫ ∙ ⟪ ⟦ y ⟧ ⟫
