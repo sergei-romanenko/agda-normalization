@@ -243,12 +243,16 @@ data Nf : Ty → Set where
   S2 : ∀ {α β γ} (u : Nf (α ⇒ β ⇒ γ)) (v : Nf (α ⇒ β))→
          Nf (α ⇒ γ)
 
-reify : ∀ {α} (n : Nf α) → Tm α
-reify K0 = K
-reify (K1 u) = K ∙ reify u
-reify S0 = S
-reify (S1 u) = S ∙ reify u
-reify (S2 u v) = S ∙ reify u ∙ reify v
+--
+-- Reification.
+--
+
+⌜_⌝ : ∀ {α} (n : Nf α) → Tm α
+⌜ K0 ⌝ = K
+⌜ K1 u ⌝ = K ∙ ⌜ u ⌝
+⌜ S0 ⌝ = S
+⌜ S1 u ⌝ = S ∙ ⌜ u ⌝
+⌜ S2 u v ⌝ = S ∙ ⌜ u ⌝ ∙ ⌜ v ⌝
 
 --
 -- A "naive" big-step normalization function.
@@ -272,8 +276,11 @@ module NaiveNorm where
   ⟦ S ⟧ = S0
   ⟦ x ∙ y ⟧ = ⟦ x ⟧ ⟨∙⟩ ⟦ y ⟧
 
+  ⟦III⟧ : ⟦ III ⟧ ≡ S2 K0 K0
+  ⟦III⟧ = refl
+
   norm : ∀ {α} → Tm α → Tm α
-  norm = reify ∘ ⟦_⟧
+  norm = ⌜_⌝ ∘ ⟦_⟧
 
   norm-III : norm III ≡ S ∙ K ∙ K
   norm-III = refl
@@ -307,7 +314,7 @@ mutual
     ⟦ x ⟧ >>= λ u → ⟦ y ⟧ >>= λ v → u ⟨∙⟩ v
 
 dnorm : ∀ {α} (x : Tm α) → ∀ {i} → Delay i (Tm α)
-dnorm x = reify <$> ⟦ x ⟧
+dnorm x = ⌜_⌝ <$> ⟦ x ⟧
 
 dnorm-III⇓ : dnorm III ⇓ (S ∙ K ∙ K)
 dnorm-III⇓ = later⇓ (later⇓ now⇓)
@@ -319,7 +326,7 @@ dnorm-III⇓ = later⇓ (later⇓ now⇓)
 SC : ∀ {α} (u : Nf α) → Set
 SC {⋆} u = ⊤
 SC {α ⇒ β} u = ∀ (v : Nf α) (q : SC v) →
-    ∃ λ w → u ⟨∙⟩ v ⇓ w × reify u ∙ reify v ≈ reify w × SC w
+    ∃ λ w → u ⟨∙⟩ v ⇓ w × ⌜ u ⌝ ∙ ⌜ v ⌝ ≈ ⌜ w ⌝ × SC w
 
 mutual
 
@@ -351,32 +358,55 @@ mutual
     = uwvw , later⇓ (bind⇓₂ _⟨∙⟩_ ⇓uw ⇓vw ⇓uwvw) , suvw≈uwvw , prqr
     where
     open ≈-Reasoning
-    suvw≈uwvw : S ∙ reify u ∙ reify v ∙ reify w ≈ reify uwvw
+    suvw≈uwvw : S ∙ ⌜ u ⌝ ∙ ⌜ v ⌝ ∙ ⌜ w ⌝ ≈ ⌜ uwvw ⌝
     suvw≈uwvw = begin
-      S ∙ reify u ∙ reify v ∙ reify w
+      S ∙ ⌜ u ⌝ ∙ ⌜ v ⌝ ∙ ⌜ w ⌝
         ≈⟨ ≈S ⟩
-      (reify u ∙ reify w) ∙ (reify v ∙ reify w)
+      (⌜ u ⌝ ∙ ⌜ w ⌝) ∙ (⌜ v ⌝ ∙ ⌜ w ⌝)
         ≈⟨ ≈cong∙ ≈uw ≈vw ⟩
-      reify uw ∙ reify vw
+      ⌜ uw ⌝ ∙ ⌜ vw ⌝
         ≈⟨ ≈uwvw ⟩
-      reify uwvw
+      ⌜ uwvw ⌝
       ∎
 
 --
 -- Normalizer.
 --
 
-eval : ∀ {α} (x : Tm α) → Nf α
-eval x = proj₁ (all-sc x)
+nf : ∀ {α} (x : Tm α) → Nf α
+nf x = proj₁ (all-sc x)
 
-eval-III : eval III ≡ S2 K0 K0
-eval-III = refl
+nf-III : nf III ≡ S2 K0 K0
+nf-III = refl
 
 norm : ∀ {α} (x : Tm α) → Tm α
-norm = reify ∘ eval
+norm = ⌜_⌝ ∘ nf
 
 norm-III : norm III ≡ S ∙ K ∙ K
 norm-III = refl
+
+--
+-- Stability: nf ⌜ n ⌝ ≡ n .
+--
+
+stable : ∀ {α} (u : Nf α) → nf ⌜ u ⌝ ≡ u
+
+stable K0 = refl
+stable (K1 u)
+  rewrite stable u
+  = refl
+stable S0 = refl
+stable (S1 u)
+  rewrite stable u
+  = refl
+stable (S2 u v) = begin
+  nf (S ∙ ⌜ u ⌝ ∙ ⌜ v ⌝)
+    ≡⟨⟩
+  S2 (nf ⌜ u ⌝) (nf ⌜ v ⌝)
+    ≡⟨ cong₂ S2 (stable u) (stable v) ⟩
+  S2 u v
+  ∎
+  where open ≡-Reasoning
 
 --
 -- Completeness: x ≈ norm x
@@ -384,6 +414,7 @@ norm-III = refl
 --
 
 norm-complete : ∀ {α} (x : Tm α) → x ≈ norm x
+
 norm-complete K = ≈refl
 norm-complete S = ≈refl
 norm-complete (x ∙ y)
@@ -396,13 +427,13 @@ norm-complete (x ∙ y)
   x ∙ y
     ≈⟨ ≈cong∙ (norm-complete x) (norm-complete y) ⟩
   norm x ∙ norm y
-    ≡⟨ cong₂ _∙_ (cong (reify ∘ proj₁) all-sc-x≡)
-                 (cong (reify ∘ proj₁) all-sc-y≡) ⟩
-  reify u ∙ reify v
+    ≡⟨ cong₂ _∙_ (cong (⌜_⌝ ∘ proj₁) all-sc-x≡)
+                 (cong (⌜_⌝ ∘ proj₁) all-sc-y≡) ⟩
+  ⌜ u ⌝ ∙ ⌜ v ⌝
     ≈⟨ ≈w′ ⟩
-  reify w ∎
-  where
-  open ≈-Reasoning
+  ⌜ w ⌝
+  ∎
+  where open ≈-Reasoning
 
 
 --
@@ -410,17 +441,17 @@ norm-complete (x ∙ y)
 --     x₁ ≈ x₂ → norm x₁ ≡ norm x₂
 --
 
-eval-sound : ∀ {α} {x y : Tm α} → x ≈ y → eval x ≡ eval y
+nf-sound : ∀ {α} {x y : Tm α} → x ≈ y → nf x ≡ nf y
 
-eval-sound ≈refl = refl
-eval-sound (≈sym y≈x) =
-  sym $ eval-sound y≈x
-eval-sound (≈trans x≈y y≈z) =
-  trans (eval-sound x≈y) (eval-sound y≈z)
-eval-sound ≈K = refl
-eval-sound ≈S = refl
-eval-sound (≈cong∙ {α} {β} {x₁} {x₂} {y₁} {y₂} x₁≈x₂ y₁≈y₂)
-  with eval-sound x₁≈x₂ | eval-sound y₁≈y₂
+nf-sound ≈refl = refl
+nf-sound (≈sym y≈x) =
+  sym $ nf-sound y≈x
+nf-sound (≈trans x≈y y≈z) =
+  trans (nf-sound x≈y) (nf-sound y≈z)
+nf-sound ≈K = refl
+nf-sound ≈S = refl
+nf-sound (≈cong∙ {α} {β} {x₁} {x₂} {y₁} {y₂} x₁≈x₂ y₁≈y₂)
+  with nf-sound x₁≈x₂ | nf-sound y₁≈y₂
 ... | u₁≡u₂ | v₁≡v₂
   with all-sc x₁ | all-sc x₂ | all-sc y₁ | all-sc y₂
 ... | u₁ , ⇓u₁ , p₁ | u₂ , ⇓u₂ , p₂ | v₁ , ⇓v₁ , q₁ | v₂ , ⇓v₂ , q₂
@@ -431,5 +462,6 @@ eval-sound (≈cong∙ {α} {β} {x₁} {x₂} {y₁} {y₂} x₁≈x₂ y₁≈
 
 norm-sound : ∀ {α} {x₁ x₂ : Tm α} →
   x₁ ≈ x₂ → norm x₁ ≡ norm x₂
+
 norm-sound x₁≈x₂ =
-  cong reify (eval-sound x₁≈x₂)
+  cong ⌜_⌝ (nf-sound x₁≈x₂)
