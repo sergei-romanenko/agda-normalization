@@ -165,12 +165,12 @@ x ≈? y with norm x ≟tm norm  y
   open ≈-Reasoning
   x≈y = begin
     x
-      ≈⟨ norm-sound x ⟩
+      ≈⟨ norm-complete x ⟩
     norm x
       ≡⟨ nx≡ny ⟩
     norm y
-      ≈⟨ ≈sym $ norm-sound y ⟩
+      ≈⟨ ≈sym $ norm-complete y ⟩
     y
     ∎
 ... | no  nx≢ny =
-  no (λ x≈y → nx≢ny (norm-complete x≈y))
+  no (λ x≈y → nx≢ny (norm-sound x≈y))

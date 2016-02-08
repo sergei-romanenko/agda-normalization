@@ -128,9 +128,9 @@ reduction-example x = ⟶S ◅ ⟶K ◅ ε
 1+1 : add (SUC ∙ ZERO) (SUC ∙ ZERO) ⟶⋆ SUC ∙ (SUC ∙ ZERO)
 1+1 = ⟶RS ◅ ⟶AL ⟶K ◅ ⟶AR ⟶RZ ◅ ε
 
-⟶⋆-∙-cong : ∀ {α β} {x₁ x₂ : Tm (α ⇒ β)} {y₁ y₂ : Tm α} →
+⟶⋆-≈cong∙ : ∀ {α β} {x₁ x₂ : Tm (α ⇒ β)} {y₁ y₂ : Tm α} →
              x₁ ⟶⋆ x₂ → y₁ ⟶⋆ y₂ → x₁ ∙ y₁ ⟶⋆ x₂ ∙ y₂
-⟶⋆-∙-cong x₁⟶⋆x₂ y₁⟶⋆y₂ =
+⟶⋆-≈cong∙ x₁⟶⋆x₂ y₁⟶⋆y₂ =
   gmap (flip _∙_ _) ⟶AL x₁⟶⋆x₂
     ◅◅ gmap (_∙_ _) ⟶AR y₁⟶⋆y₂
 
@@ -144,8 +144,8 @@ mutual
 
   ⟶→≈ ⟶K = ≈K
   ⟶→≈ ⟶S = ≈S
-  ⟶→≈ (⟶AL x⟶y) = ∙-cong (⟶→≈ x⟶y) ≈refl
-  ⟶→≈ (⟶AR x⟶y) = ∙-cong ≈refl (⟶→≈ x⟶y)
+  ⟶→≈ (⟶AL x⟶y) = ≈cong∙ (⟶→≈ x⟶y) ≈refl
+  ⟶→≈ (⟶AR x⟶y) = ≈cong∙ ≈refl (⟶→≈ x⟶y)
   ⟶→≈ ⟶RZ = ≈RZ
   ⟶→≈ ⟶RS = ≈RS
 
@@ -203,7 +203,7 @@ all-RH-R⟶⋆ p f q g (suc m) = begin
   REC ∙ ⟪ p ⟫ ∙ ⟪ q ⟫ ∙ (SUC ∙ ⟪ m ⟫)
     ⟶⟨ ⟶RS ⟩
   (⟪ q ⟫ ∙ ⟪ m ⟫) ∙ (REC ∙ ⟪ p ⟫ ∙ ⟪ q ⟫ ∙ ⟪ m ⟫)
-    ⟶⋆⟨ ⟶⋆-∙-cong (proj₁ $ g m tt) (all-RH-R⟶⋆ p f q g m) ⟩
+    ⟶⋆⟨ ⟶⋆-≈cong∙ (proj₁ $ g m tt) (all-RH-R⟶⋆ p f q g m) ⟩
   ⟪ (q ⟨∙⟩ m) ⟫ ∙ ⟪ ⟦ REC ⟧ ⟨∙⟩ p ⟨∙⟩ q ⟨∙⟩ m ⟫
     ⟶⋆⟨ proj₁ $ (||∙|| q g m tt)
                        (⟦ REC ⟧ ⟨∙⟩ p ⟨∙⟩ q ⟨∙⟩ m) (all-RH-R∙ p f q g m) ⟩
@@ -230,7 +230,7 @@ all-RH S p f =
         S ∙ ⟪ p ⟫ ∙ ⟪ q ⟫ ∙ ⟪ r ⟫
           ⟶⟨ ⟶S ⟩
         (⟪ p ⟫ ∙ ⟪ r ⟫) ∙ (⟪ q ⟫ ∙ ⟪ r ⟫)
-          ⟶⋆⟨ ⟶⋆-∙-cong (proj₁ $ f r h) (proj₁ $ g r h) ⟩
+          ⟶⋆⟨ ⟶⋆-≈cong∙ (proj₁ $ f r h) (proj₁ $ g r h) ⟩
         ⟪ p ⟨∙⟩ r ⟫ ∙ ⟪ q ⟨∙⟩ r ⟫
           ⟶⋆⟨ proj₁ $ (||∙|| p f r h) (q ⟨∙⟩ r) (||∙|| q g r h) ⟩
         ⟪ (p ⟨∙⟩ r) ⟨∙⟩ (q ⟨∙⟩ r) ⟫
@@ -264,7 +264,7 @@ all-RH REC p f =
 ⟶⋆norm S = ε
 ⟶⋆norm (x ∙ y) = begin
   x ∙ y
-    ⟶⋆⟨ ⟶⋆-∙-cong (⟶⋆norm x) (⟶⋆norm y) ⟩
+    ⟶⋆⟨ ⟶⋆-≈cong∙ (⟶⋆norm x) (⟶⋆norm y) ⟩
   norm x ∙ norm y
     ≡⟨ refl ⟩
   ⟪ ⟦ x ⟧ ⟫ ∙ ⟪ ⟦ y ⟧ ⟫
@@ -299,4 +299,4 @@ confluence {α} {x} {y′} {y′′} x⟶⋆y′ x⟶⋆y′′ =
     ∎ where open ≈-Reasoning
 
   ny′′≡ny′ : norm y′′ ≡ norm y′
-  ny′′≡ny′ = norm-complete y′′≈y′
+  ny′′≡ny′ = norm-sound y′′≈y′

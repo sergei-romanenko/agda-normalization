@@ -33,6 +33,7 @@
 
 module STLC-Tait-OPE.Everything where
 
+import STLC-Tait-OPE.Util
 import STLC-Tait-OPE.Syntax
 import STLC-Tait-OPE.Recursive
 import STLC-Tait-OPE.StrongComputability

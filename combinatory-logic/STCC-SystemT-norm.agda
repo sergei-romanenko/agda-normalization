@@ -111,7 +111,7 @@ data _≈_  : {α : Ty} (x y : Tm α) → Set where
              K ∙ x ∙ y ≈ x
   ≈S     : ∀ {α β γ} {x : Tm (α ⇒ β ⇒ γ)} {y : Tm (α ⇒ β)} {z : Tm α} →
              S ∙ x ∙ y ∙ z ≈ (x ∙ z) ∙ (y ∙ z)
-  ∙-cong : ∀ {α β} {x y : Tm (α ⇒ β)} {x′ y′ : Tm α} →
+  ≈cong∙ : ∀ {α β} {x y : Tm (α ⇒ β)} {x′ y′ : Tm α} →
              x ≈ y → x′ ≈ y′ → x ∙ x′ ≈ y ∙ y′
   ≈RZ    : ∀ {α} {x : Tm α} {y : Tm (N ⇒ α ⇒ α)} →
              REC ∙ x ∙ y ∙ ZERO ≈ x 
@@ -306,39 +306,39 @@ norm-1+1 : norm (add (SUC ∙ ZERO) (SUC ∙ ZERO)) ≡ SUC ∙ (SUC ∙ ZERO)
 norm-1+1 = refl
 
 --
--- Completeness: the normal forms of two convertible terms are equal
+-- Soundness: the normal forms of two convertible terms are equal
 --     x ≈ y → norm x ≡ norm y
 --
 
-≈→⟦⟧≡⟦⟧ : ∀ {α} {x y : Tm α} → x ≈ y → ⟦ x ⟧ ≡ ⟦ y ⟧
+⟦⟧-sound : ∀ {α} {x y : Tm α} → x ≈ y → ⟦ x ⟧ ≡ ⟦ y ⟧
 
-≈→⟦⟧≡⟦⟧ ≈refl = refl
-≈→⟦⟧≡⟦⟧ (≈sym y≈x) =
-  sym (≈→⟦⟧≡⟦⟧ y≈x)
-≈→⟦⟧≡⟦⟧ (≈trans x≈y y≈z) =
-  trans (≈→⟦⟧≡⟦⟧ x≈y) (≈→⟦⟧≡⟦⟧ y≈z)
-≈→⟦⟧≡⟦⟧ ≈K = refl
-≈→⟦⟧≡⟦⟧ ≈S = refl
-≈→⟦⟧≡⟦⟧ (∙-cong {α} {β} {x} {y} {x′} {y′} x≈y x′≈y′) = begin
+⟦⟧-sound ≈refl = refl
+⟦⟧-sound (≈sym y≈x) =
+  sym (⟦⟧-sound y≈x)
+⟦⟧-sound (≈trans x≈y y≈z) =
+  trans (⟦⟧-sound x≈y) (⟦⟧-sound y≈z)
+⟦⟧-sound ≈K = refl
+⟦⟧-sound ≈S = refl
+⟦⟧-sound (≈cong∙ {α} {β} {x} {y} {x′} {y′} x≈y x′≈y′) = begin
   ⟦ x ∙ x′ ⟧
     ≡⟨⟩
   ⟦ x ⟧ ⟨∙⟩ ⟦ x′ ⟧
-    ≡⟨ cong₂ _⟨∙⟩_ (≈→⟦⟧≡⟦⟧ x≈y) (≈→⟦⟧≡⟦⟧ x′≈y′) ⟩
+    ≡⟨ cong₂ _⟨∙⟩_ (⟦⟧-sound x≈y) (⟦⟧-sound x′≈y′) ⟩
   ⟦ y ⟧ ⟨∙⟩ ⟦ y′ ⟧
     ≡⟨⟩
   ⟦ y ∙ y′ ⟧
   ∎
   where open ≡-Reasoning
-≈→⟦⟧≡⟦⟧ ≈RZ = refl
-≈→⟦⟧≡⟦⟧ ≈RS = refl
+⟦⟧-sound ≈RZ = refl
+⟦⟧-sound ≈RS = refl
 
-norm-complete : ∀ {α} {x y : Tm α} →
+norm-sound : ∀ {α} {x y : Tm α} →
   x ≈ y → norm x ≡ norm y
-norm-complete x≈y =
-  cong ⟪_⟫ (≈→⟦⟧≡⟦⟧ x≈y)
+norm-sound x≈y =
+  cong ⟪_⟫ (⟦⟧-sound x≈y)
 
 --
--- Now we are going to prove "soundness" -
+-- Now we are going to prove "completeness" -
 -- normalization preserves convertibility:
 --     x ≈ norm x
 -- 
@@ -392,7 +392,7 @@ all-H-R≈ p f q g (suc m) = begin
   REC ∙ ⟪ p ⟫ ∙ ⟪ q ⟫ ∙ (SUC ∙ ⟪ m ⟫)
     ≈⟨ ≈RS ⟩
   (⟪ q ⟫ ∙ ⟪ m ⟫) ∙ (REC ∙ ⟪ p ⟫ ∙ ⟪ q ⟫ ∙ ⟪ m ⟫)
-    ≈⟨ ∙-cong (proj₁ $ g m tt) (all-H-R≈ p f q g m) ⟩
+    ≈⟨ ≈cong∙ (proj₁ $ g m tt) (all-H-R≈ p f q g m) ⟩
   ⟪ (q ⟨∙⟩ m) ⟫ ∙ ⟪ ⟦ REC ⟧ ⟨∙⟩ p ⟨∙⟩ q ⟨∙⟩ m ⟫
     ≈⟨ proj₁ $ |∙| q g m tt (⟦ REC ⟧ ⟨∙⟩ p ⟨∙⟩ q ⟨∙⟩ m)
                (all-H-R∙ p f q g m) ⟩
@@ -419,7 +419,7 @@ all-H S p f =
         S ∙ ⟪ p ⟫ ∙ ⟪ q ⟫ ∙ ⟪ r ⟫
           ≈⟨ ≈S ⟩
         (⟪ p ⟫ ∙ ⟪ r ⟫) ∙ (⟪ q ⟫ ∙ ⟪ r ⟫)
-          ≈⟨ ∙-cong (proj₁ $ f r h) (proj₁ $ g r h) ⟩
+          ≈⟨ ≈cong∙ (proj₁ $ f r h) (proj₁ $ g r h) ⟩
         ⟪ p ⟨∙⟩ r ⟫ ∙ ⟪ q ⟨∙⟩ r ⟫
           ≈⟨ proj₁ $ (|∙| p f r h) (q ⟨∙⟩ r) (|∙| q g r h) ⟩
         ⟪ (p ⟨∙⟩ r) ⟨∙⟩ (q ⟨∙⟩ r) ⟫
@@ -444,17 +444,17 @@ all-H REC p f =
       all-H-R≈ p f q g n , all-H-R∙ p f q g n
 
 --
--- Soundness: terms are convertible to their normal forms
+-- Completeness: terms are convertible to their normal forms
 --     x ≈ norm x
 -- 
 
-norm-sound : ∀ {α} (x : Tm α) → x ≈ norm x
+norm-complete : ∀ {α} (x : Tm α) → x ≈ norm x
 
-norm-sound K = ≈refl
-norm-sound S = ≈refl
-norm-sound (x ∙ y) = begin
+norm-complete K = ≈refl
+norm-complete S = ≈refl
+norm-complete (x ∙ y) = begin
   x ∙ y
-    ≈⟨ ∙-cong (norm-sound x) (norm-sound y) ⟩
+    ≈⟨ ≈cong∙ (norm-complete x) (norm-complete y) ⟩
   norm x ∙ norm y
     ≡⟨⟩
   ⟪ ⟦ x ⟧ ⟫ ∙ ⟪ ⟦ y ⟧ ⟫
@@ -464,6 +464,6 @@ norm-sound (x ∙ y) = begin
   norm (x ∙ y)
   ∎
   where open ≈-Reasoning
-norm-sound ZERO = ≈refl
-norm-sound SUC = ≈refl
-norm-sound REC = ≈refl
+norm-complete ZERO = ≈refl
+norm-complete SUC = ≈refl
+norm-complete REC = ≈refl

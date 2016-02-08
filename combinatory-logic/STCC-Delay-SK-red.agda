@@ -86,24 +86,24 @@ reduction-example : ∀ {α} (x : Tm α) → (I {α}) ∙ x ⟶* x
 reduction-example x = there ⟶S (there ⟶K here)
 
 --
--- `reify u` does return a term that cannot be reduced).
+-- `⌜ u ⌝` does return a term that cannot be reduced).
 --
 
 Irreducible : ∀ {α} (x : Tm α) → Set
 Irreducible x = ∄ (λ y → x ⟶ y)
 
-reify→nf : ∀ {α} (u : Nf α) → Irreducible (reify u)
+⌜⌝→nf : ∀ {α} (u : Nf α) → Irreducible ⌜ u ⌝
 
-reify→nf K0 (y , ())
-reify→nf (K1 u) (._ , ⟶AL ())
-reify→nf (K1 u) (._ , ⟶AR ⟶y) =
-  reify→nf u (, ⟶y)
-reify→nf S0 (y , ())
-reify→nf (S1 u) (._ , ⟶AL ())
-reify→nf (S1 u) (._ , ⟶AR ⟶y) =
-  reify→nf u (, ⟶y)
-reify→nf (S2 u v) (._ , ⟶AL (⟶AL ()))
-reify→nf (S2 u v) (._ , ⟶AL (⟶AR ⟶y)) =
-  reify→nf u (, ⟶y)
-reify→nf (S2 u v) (._ , ⟶AR ⟶y) =
-  reify→nf v (, ⟶y)
+⌜⌝→nf K0 (y , ())
+⌜⌝→nf (K1 u) (._ , ⟶AL ())
+⌜⌝→nf (K1 u) (._ , ⟶AR ⟶y) =
+  ⌜⌝→nf u (, ⟶y)
+⌜⌝→nf S0 (y , ())
+⌜⌝→nf (S1 u) (._ , ⟶AL ())
+⌜⌝→nf (S1 u) (._ , ⟶AR ⟶y) =
+  ⌜⌝→nf u (, ⟶y)
+⌜⌝→nf (S2 u v) (._ , ⟶AL (⟶AL ()))
+⌜⌝→nf (S2 u v) (._ , ⟶AL (⟶AR ⟶y)) =
+  ⌜⌝→nf u (, ⟶y)
+⌜⌝→nf (S2 u v) (._ , ⟶AR ⟶y) =
+  ⌜⌝→nf v (, ⟶y)

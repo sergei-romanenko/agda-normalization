@@ -87,7 +87,7 @@ data _≈_  : {α : Ty} (x y : Tm α) → Set where
              K ∙ x ∙ y ≈ x
   ≈S     : ∀ {α β γ} {x : Tm (α ⇒ β ⇒ γ)} {y : Tm (α ⇒ β)} {z : Tm α} →
              S ∙ x ∙ y ∙ z ≈ (x ∙ z) ∙ (y ∙ z)
-  ∙-cong : ∀ {α β} {x y : Tm (α ⇒ β)} {x′ y′ : Tm α} →
+  ≈cong∙ : ∀ {α β} {x y : Tm (α ⇒ β)} {x′ y′ : Tm α} →
              x ≈ y → x′ ≈ y′ → x ∙ x′ ≈ y ∙ y′
 
 ≈setoid : {α : Ty} → Setoid _ _
@@ -254,7 +254,7 @@ norm-III = refl
   trans (≈→⟦⟧≡⟦⟧ x≈y) (≈→⟦⟧≡⟦⟧ y≈z)
 ≈→⟦⟧≡⟦⟧ ≈K = refl
 ≈→⟦⟧≡⟦⟧ ≈S = refl
-≈→⟦⟧≡⟦⟧ (∙-cong {α} {β} {x} {y} {x′} {y′} x≈y x′≈y′) = begin
+≈→⟦⟧≡⟦⟧ (≈cong∙ {α} {β} {x} {y} {x′} {y′} x≈y x′≈y′) = begin
   ⟦ x ∙ x′ ⟧
     ≡⟨⟩
   ⟦ x ⟧ ⟨∙⟩ ⟦ x′ ⟧
@@ -305,7 +305,7 @@ all-H S p f =
         S ∙ ⟪ p ⟫ ∙ ⟪ q ⟫ ∙ ⟪ r ⟫
           ≈⟨ ≈S ⟩
         (⟪ p ⟫ ∙ ⟪ r ⟫) ∙ (⟪ q ⟫ ∙ ⟪ r ⟫)
-          ≈⟨ ∙-cong (proj₁ $ f r h) (proj₁ $ g r h) ⟩
+          ≈⟨ ≈cong∙ (proj₁ $ f r h) (proj₁ $ g r h) ⟩
         ⟪ p ⟨∙⟩ r ⟫ ∙ ⟪ q ⟨∙⟩ r ⟫
           ≈⟨ proj₁ $ (|∙| p f r h) (q ⟨∙⟩ r) (|∙| q g r h) ⟩
         ⟪ (p ⟨∙⟩ r) ⟨∙⟩ (q ⟨∙⟩ r) ⟫
@@ -329,7 +329,7 @@ norm-complete K = ≈refl
 norm-complete S = ≈refl
 norm-complete (x ∙ y) = begin
   x ∙ y
-    ≈⟨ ∙-cong (norm-complete x) (norm-complete y) ⟩
+    ≈⟨ ≈cong∙ (norm-complete x) (norm-complete y) ⟩
   norm x ∙ norm y
     ≡⟨⟩
   ⟪ ⟦ x ⟧ ⟫ ∙ ⟪ ⟦ y ⟧ ⟫
