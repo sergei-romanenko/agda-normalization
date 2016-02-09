@@ -20,7 +20,7 @@ mutual
 
   ⟦_⟧*_ : ∀ {Β Γ Δ} (σ : Sub Β Γ) (ρ : Env Δ Β) → Env Δ Γ
   ⟦ ı ⟧* ρ = ρ
-  ⟦ σ ⊙ σ′ ⟧* ρ = ⟦ σ ⟧* (⟦ σ′ ⟧* ρ)
+  ⟦ σ ○ σ′ ⟧* ρ = ⟦ σ ⟧* (⟦ σ′ ⟧* ρ)
   ⟦ t ∷ σ ⟧* ρ = ⟦ t ⟧ ρ ∷ ⟦ σ ⟧* ρ
   ⟦ ↑ ⟧* (u ∷ ρ) = ρ
 
@@ -90,11 +90,11 @@ var≤∘suc (≤lift η) x
   ⟦ embVar x ⟧ id-env ≡ ne (var x)
 ⟦⟧∘embVar x = begin
   ⟦ embVar x ⟧ id-env
-    ≡⟨ cong (⟦_⟧_ (embVar x)) (sym $ env≤∘≤id id-env) ⟩
+    ≡⟨ cong (⟦_⟧_ (embVar x)) (sym $ env≤-≤id id-env) ⟩
   ⟦ embVar x ⟧ (env≤ ≤id id-env)
     ≡⟨ ⟦⟧∘embVar≤ ≤id x ⟩
   ne (var (var≤ ≤id x))
-    ≡⟨ cong (ne ∘′ var) (var≤∘≤id x) ⟩
+    ≡⟨ cong (ne ∘′ var) (var≤-≤id x) ⟩
   ne (var x)
   ∎
   where open ≡-Reasoning
@@ -163,7 +163,7 @@ mutual
   ⟦⟧*∘≤ : ∀ {Β Γ Δ Δ′} (η : Β ≤ Γ) (σ : Sub Δ Δ′) (ρ : Env Γ Δ) →
     ⟦ σ ⟧* (env≤ η ρ) ≡ env≤ η (⟦ σ ⟧* ρ)
   ⟦⟧*∘≤ η ı ρ = refl
-  ⟦⟧*∘≤ η (σ ⊙ σ′) ρ = begin
+  ⟦⟧*∘≤ η (σ ○ σ′) ρ = begin
     ⟦ σ ⟧* (⟦ σ′ ⟧* env≤ η ρ)
       ≡⟨ cong (⟦_⟧*_ σ) (⟦⟧*∘≤ η σ′ ρ) ⟩
     ⟦ σ ⟧* env≤ η (⟦ σ′ ⟧* ρ)
@@ -335,8 +335,8 @@ mutual
   ... | u₁~u₂ | v₁~v₂
     with u₁~u₂ ≤id v₁~v₂
   ... | uv₁~uv₂
-    rewrite val≤ ≤id (⟦ t ⟧ ρ₁) ≡ ⟦ t ⟧ ρ₁ ∋ val≤∘≤id _ |
-            val≤ ≤id (⟦ t ⟧ ρ₂) ≡ ⟦ t ⟧ ρ₂ ∋ val≤∘≤id _
+    rewrite val≤ ≤id (⟦ t ⟧ ρ₁) ≡ ⟦ t ⟧ ρ₁ ∋ val≤-≤id _ |
+            val≤ ≤id (⟦ t ⟧ ρ₂) ≡ ⟦ t ⟧ ρ₂ ∋ val≤-≤id _
     = uv₁~uv₂
   ~cong⟦≡⟧ (ƛ t) ρ₁~~ρ₂ η v₁~v₂ =
     ~cong⟦≡⟧ t (v₁~v₂ ∷ ~~≤ η ρ₁~~ρ₂)
@@ -348,7 +348,7 @@ mutual
     ⟦ σ ⟧* ρ₁ ~~ ⟦ σ ⟧* ρ₂
 
   ~~cong⟦≡⟧* ı ρ₁~~ρ₂ = ρ₁~~ρ₂
-  ~~cong⟦≡⟧* (σ ⊙ σ′) ρ₁~~ρ₂ =
+  ~~cong⟦≡⟧* (σ ○ σ′) ρ₁~~ρ₂ =
     ~~cong⟦≡⟧* σ (~~cong⟦≡⟧* σ′ ρ₁~~ρ₂)
   ~~cong⟦≡⟧* (t ∷ σ) ρ₁~~ρ₂ =
     ~cong⟦≡⟧ t ρ₁~~ρ₂ ∷ ~~cong⟦≡⟧* σ ρ₁~~ρ₂
@@ -373,8 +373,8 @@ mutual
   ... | v₁~v₂
     with ~cong⟦⟧ f₁≈f₂ ρ₁~~ρ₂ ≤id v₁~v₂
   ... | w₁~w₂
-    rewrite val≤ ≤id (⟦ f₁ ⟧ ρ₁) ≡ ⟦ f₁ ⟧ ρ₁ ∋ val≤∘≤id _ |
-            val≤ ≤id (⟦ f₂ ⟧ ρ₂) ≡ ⟦ f₂ ⟧ ρ₂ ∋ val≤∘≤id _
+    rewrite val≤ ≤id (⟦ f₁ ⟧ ρ₁) ≡ ⟦ f₁ ⟧ ρ₁ ∋ val≤-≤id _ |
+            val≤ ≤id (⟦ f₂ ⟧ ρ₂) ≡ ⟦ f₂ ⟧ ρ₂ ∋ val≤-≤id _
     = w₁~w₂
   ~cong⟦⟧ (≈cong[] t₁≈t₂ σ₁≈≈σ₂) ρ₁~~ρ₂ =
     ~cong⟦⟧ t₁≈t₂ (~~cong⟦⟧* σ₁≈≈σ₂ ρ₁~~ρ₂)
@@ -384,7 +384,7 @@ mutual
     ~cong⟦≡⟧ t ρ₁~~ρ₂
   ~cong⟦⟧ {t₁ = t [ ı ]} ≈id ρ₁~~ρ₂ =
     ~cong⟦≡⟧ t ρ₁~~ρ₂
-  ~cong⟦⟧ {t₁ = t [ σ ⊙ σ′ ]} ≈comp ρ₁~~ρ₂ =
+  ~cong⟦⟧ {t₁ = t [ σ ○ σ′ ]} ≈comp ρ₁~~ρ₂ =
     ~cong⟦≡⟧ t (~~cong⟦≡⟧* σ (~~cong⟦≡⟧* σ′ ρ₁~~ρ₂))
   ~cong⟦⟧ {t₁ = (ƛ t) [ σ ]} ≈lam {ρ₁} {ρ₂} ρ₁~~ρ₂ {B} η {v₁} {v₂} v₁~v₂
     with ~~cong⟦≡⟧* σ ρ₁~~ρ₂
@@ -400,16 +400,16 @@ mutual
   ... | v₁~v₂
     with ~cong⟦≡⟧ t θ₁~~θ₂ ≤id v₁~v₂
   ... | w₁~w₂
-    rewrite val≤ ≤id (⟦ t ⟧ (⟦ σ ⟧* ρ₁)) ≡ ⟦ t ⟧ (⟦ σ ⟧* ρ₁) ∋ val≤∘≤id _ |
-            val≤ ≤id (⟦ t ⟧ (⟦ σ ⟧* ρ₂)) ≡ ⟦ t ⟧ (⟦ σ ⟧* ρ₂) ∋ val≤∘≤id _
+    rewrite val≤ ≤id (⟦ t ⟧ (⟦ σ ⟧* ρ₁)) ≡ ⟦ t ⟧ (⟦ σ ⟧* ρ₁) ∋ val≤-≤id _ |
+            val≤ ≤id (⟦ t ⟧ (⟦ σ ⟧* ρ₂)) ≡ ⟦ t ⟧ (⟦ σ ⟧* ρ₂) ∋ val≤-≤id _
     = w₁~w₂
   ~cong⟦⟧ {t₁ = (ƛ t) [ σ ] ∙ t′} ≈βσ {ρ₁} {ρ₂} ρ₁~~ρ₂ =
     ~cong⟦≡⟧ t (~cong⟦≡⟧ t′ ρ₁~~ρ₂ ∷ ~~cong⟦≡⟧* σ ρ₁~~ρ₂)
   ~cong⟦⟧ {t₁ = t} ≈η {ρ₁} {ρ₂} ρ₁~~ρ₂ {Β} η {v₁} {v₂} v₁~v₂
     with ~cong⟦≡⟧ t (~~≤ η ρ₁~~ρ₂) ≤id v₁~v₂
   ... | w₁~w₂
-    rewrite val≤ ≤id (⟦ t ⟧ env≤ η ρ₁) ≡ ⟦ t ⟧ env≤ η ρ₁ ∋ val≤∘≤id _ |
-            val≤ ≤id (⟦ t ⟧ env≤ η ρ₂) ≡ ⟦ t ⟧ env≤ η ρ₂ ∋ val≤∘≤id _ |
+    rewrite val≤ ≤id (⟦ t ⟧ env≤ η ρ₁) ≡ ⟦ t ⟧ env≤ η ρ₁ ∋ val≤-≤id _ |
+            val≤ ≤id (⟦ t ⟧ env≤ η ρ₂) ≡ ⟦ t ⟧ env≤ η ρ₂ ∋ val≤-≤id _ |
             ⟦ t ⟧ env≤ η ρ₁ ≡ val≤ η (⟦ t ⟧ ρ₁) ∋ ⟦⟧∘≤ η t ρ₁
     = w₁~w₂
 
@@ -424,19 +424,19 @@ mutual
     ~~sym (~~cong⟦⟧* σ₁≈≈σ₂ (~~sym ρ₁~~ρ₂))
   ~~cong⟦⟧* (≈≈trans σ₁≈≈σ₂ σ₂≈≈σ₃) ρ₁~~ρ₂ =
     ~~trans (~~cong⟦⟧* σ₁≈≈σ₂ (~~refl′ ρ₁~~ρ₂)) (~~cong⟦⟧* σ₂≈≈σ₃ ρ₁~~ρ₂)
-  ~~cong⟦⟧* (≈≈cong⊙ σ₁≈≈σ₂ τ₁≈≈τ₂) ρ₁~~ρ₂ =
+  ~~cong⟦⟧* (≈≈cong○ σ₁≈≈σ₂ τ₁≈≈τ₂) ρ₁~~ρ₂ =
     ~~cong⟦⟧* σ₁≈≈σ₂ (~~cong⟦⟧* τ₁≈≈τ₂ ρ₁~~ρ₂)
   ~~cong⟦⟧* (≈≈cong∷ t₁≈t₂ σ₁≈≈σ₂) ρ₁~~ρ₂ =
     ~cong⟦⟧ t₁≈t₂ ρ₁~~ρ₂ ∷ ~~cong⟦⟧* σ₁≈≈σ₂ ρ₁~~ρ₂
-  ~~cong⟦⟧* {σ₁ = (σ₁ ⊙ σ₂) ⊙ σ₃} ≈≈assoc ρ₁~~ρ₂ =
+  ~~cong⟦⟧* {σ₁ = (σ₁ ○ σ₂) ○ σ₃} ≈≈assoc ρ₁~~ρ₂ =
     ~~cong⟦≡⟧* σ₁ (~~cong⟦≡⟧* σ₂ (~~cong⟦≡⟧* σ₃ ρ₁~~ρ₂))
   ~~cong⟦⟧* {σ₂ = σ} ≈≈idl ρ₁~~ρ₂ =
     ~~cong⟦≡⟧* σ ρ₁~~ρ₂
   ~~cong⟦⟧* {σ₂ = σ} ≈≈idr ρ₁~~ρ₂ =
     ~~cong⟦≡⟧* σ ρ₁~~ρ₂
-  ~~cong⟦⟧* {σ₁ = ↑ ⊙ (t ∷ σ)} ≈≈wk ρ₁~~ρ₂ =
+  ~~cong⟦⟧* {σ₁ = ↑ ○ (t ∷ σ)} ≈≈wk ρ₁~~ρ₂ =
     ~~cong⟦≡⟧* σ ρ₁~~ρ₂
-  ~~cong⟦⟧* {σ₁ = (t ∷ σ) ⊙ σ′} ≈≈cons ρ₁~~ρ₂ =
+  ~~cong⟦⟧* {σ₁ = (t ∷ σ) ○ σ′} ≈≈cons ρ₁~~ρ₂ =
     ~cong⟦≡⟧ t (~~cong⟦≡⟧* σ′ ρ₁~~ρ₂) ∷ ~~cong⟦≡⟧* σ (~~cong⟦≡⟧* σ′ ρ₁~~ρ₂)
   ~~cong⟦⟧* ≈≈id∷ (u₁~u₂ ∷ ρ₁~~ρ₂) =
     u₁~u₂ ∷ ρ₁~~ρ₂

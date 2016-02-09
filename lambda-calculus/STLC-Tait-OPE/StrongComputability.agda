@@ -70,9 +70,9 @@ embVal∘wk u = begin
     ≡⟨⟩
   embVal (val≤ wk u)
     ≈⟨ embVal∘≤ wk u ⟩
-  embVal u [ sub≤ ≤id ⊙ ↑ ]
-    ≈⟨ ≈cong[] ≈refl (≈≈cong⊙ ı≈≈sub≤-≤id ≈≈refl) ⟩
-  embVal u [ ı ⊙ ↑ ]
+  embVal u [ ≤2sub ≤id ○ ↑ ]
+    ≈⟨ ≈cong[] ≈refl (≈≈cong○ ı≈≈≤2sub-≤id ≈≈refl) ⟩
+  embVal u [ ı ○ ↑ ]
     ≈⟨ ≈cong[] ≈refl ≈≈idl ⟩
   embVal u [ ↑ ]
   ∎
@@ -138,22 +138,6 @@ mutual
     r = quote*→scv-ne (app us≤ u) (app ns≤ m)
                         (app⇓ (quote*≤ η ⇓ns) ⇓m) us∙u≈ns∙m
 
-embEnv∘id-env : ∀ {Γ} → embEnv (id-env {Γ}) ≈≈ ı
-embEnv∘id-env {[]} = ≈≈refl
-embEnv∘id-env {x ∷ Γ} = begin
-  ø ∷ embEnv (env≤ wk id-env)
-    ≡⟨⟩
-  ø ∷ embEnv (env≤ wk id-env)
-    ≈⟨ ≈≈cong∷ ≈refl (embEnv∘≤ wk id-env) ⟩
-  ø ∷ embEnv id-env ⊙ (sub≤ ≤id ⊙ ↑)
-    ≈⟨ ≈≈cong∷ ≈refl (≈≈cong⊙ ≈≈refl (≈≈cong⊙ ı≈≈sub≤-≤id ≈≈refl)) ⟩
-  ø ∷ embEnv id-env ⊙ (ı ⊙ ↑)
-    ≈⟨ ≈≈cong∷ ≈refl (≈≈cong⊙ embEnv∘id-env ≈≈idl) ⟩
-  ø ∷ (ı ⊙ ↑)
-    ≈⟨ ≈≈sym ≈≈id∷ ⟩
-  ı
-  ∎
-  where open ≈≈-Reasoning
 
 -- SCE id-env
 
@@ -184,7 +168,7 @@ mutual
     where
     open ≈-Reasoning
     ⇓w′ : u ⟨∙⟩ v ⇓ w
-    ⇓w′ = subst (λ u′ → u′ ⟨∙⟩ v ⇓ w) (val≤∘≤id u) ⇓w
+    ⇓w′ = subst (λ u′ → u′ ⟨∙⟩ v ⇓ w) (val≤-≤id u) ⇓w
     ≈w′ : (t ∙ t′) [ embEnv ρ ] ≈ embVal w
     ≈w′ = begin
       (t ∙ t′) [ embEnv ρ ]
@@ -192,7 +176,7 @@ mutual
       t [ embEnv ρ ] ∙ t′ [ embEnv ρ ]
         ≈⟨ ≈cong∙ ≈u ≈v ⟩
       embVal u ∙ embVal v
-        ≡⟨ cong₂ _∙_ (cong embVal (sym $ val≤∘≤id u)) refl ⟩
+        ≡⟨ cong₂ _∙_ (cong embVal (sym $ val≤-≤id u)) refl ⟩
       embVal (val≤ ≤id u) ∙ embVal v
         ≈⟨ ≈w ⟩
       embVal w
@@ -228,7 +212,7 @@ mutual
     ≈u′ = begin
       t [ σ ] [ embEnv ρ ]
         ≈⟨ ≈sym ≈comp ⟩
-      t [ σ ⊙ embEnv ρ ]
+      t [ σ ○ embEnv ρ ]
         ≈⟨ ≈cong[] ≈refl ≈≈θ′ ⟩
       t [ embEnv θ′ ]
         ≈⟨ ≈u ⟩
@@ -236,25 +220,25 @@ mutual
       ∎
 
   all-sce : ∀ {Β Γ Δ} (σ : Sub Γ Δ) (ρ : Env Β Γ) (r : SCE ρ) →
-    ∃ λ θ → SCE θ × ⟦ σ ⟧* ρ ⇓ θ × (σ ⊙ embEnv ρ ≈≈ embEnv θ)
+    ∃ λ θ → SCE θ × ⟦ σ ⟧* ρ ⇓ θ × (σ ○ embEnv ρ ≈≈ embEnv θ)
 
   all-sce ı ρ r =
     ρ , r , ι⇓ , ≈≈idl
-  all-sce (σ ⊙ σ′) ρ r
+  all-sce (σ ○ σ′) ρ r
     with all-sce σ′ ρ r
   ... | θ′ , r′ , ⇓θ′ , ≈≈θ′
     with all-sce σ θ′ r′
   ... | θ′′ , r′′ , ⇓θ′′ , ≈≈θ′′ =
-    θ′′ , r′′ , ⊙⇓ ⇓θ′ ⇓θ′′ , ≈≈θ′′′
+    θ′′ , r′′ , ○⇓ ⇓θ′ ⇓θ′′ , ≈≈θ′′′
     where
     open ≈≈-Reasoning
-    ≈≈θ′′′ : (σ ⊙ σ′) ⊙ embEnv ρ ≈≈ embEnv θ′′
+    ≈≈θ′′′ : (σ ○ σ′) ○ embEnv ρ ≈≈ embEnv θ′′
     ≈≈θ′′′ = begin
-      (σ ⊙ σ′) ⊙ embEnv ρ
+      (σ ○ σ′) ○ embEnv ρ
         ≈⟨ ≈≈assoc ⟩
-      σ ⊙ (σ′ ⊙ embEnv ρ)
-        ≈⟨ ≈≈cong⊙ ≈≈refl ≈≈θ′ ⟩
-      σ ⊙ embEnv θ′
+      σ ○ (σ′ ○ embEnv ρ)
+        ≈⟨ ≈≈cong○ ≈≈refl ≈≈θ′ ⟩
+      σ ○ embEnv θ′
         ≈⟨ ≈≈θ′′ ⟩
       embEnv θ′′
       ∎
@@ -263,128 +247,15 @@ mutual
     u ∷ θ′ , (p ∷ r′) , ∷⇓ ⇓u ⇓θ′ , ≈≈u∷θ′
     where
     open ≈≈-Reasoning
-    ≈≈u∷θ′ : (t ∷ σ) ⊙ embEnv ρ ≈≈ embVal u ∷ embEnv θ′
+    ≈≈u∷θ′ : (t ∷ σ) ○ embEnv ρ ≈≈ embVal u ∷ embEnv θ′
     ≈≈u∷θ′ = begin
-      (t ∷ σ) ⊙ embEnv ρ
+      (t ∷ σ) ○ embEnv ρ
         ≈⟨ ≈≈cons ⟩
-      t [ embEnv ρ ] ∷ (σ ⊙ embEnv ρ)
+      t [ embEnv ρ ] ∷ (σ ○ embEnv ρ)
         ≈⟨ ≈≈cong∷ ≈u ≈≈refl ⟩
-      embVal u ∷ (σ ⊙ embEnv ρ)
+      embVal u ∷ (σ ○ embEnv ρ)
         ≈⟨ ≈≈cong∷ ≈refl ≈≈θ′ ⟩
       embVal u ∷ embEnv θ′
       ∎
   all-sce ↑ (u ∷ ρ) (p ∷ r) =
     ρ , r , ↑⇓ , ≈≈wk
-
-{-
---
--- Normalizer!
---
-
-nf : ∀ {α Γ} (t : Tm Γ α) → Nf Γ α
-nf t
-  with all-scv t id-env sce-id-env
-... | u , p , ⇓u , ≈u
-  with all-quote u p
-... | n , ⇓n , ≈n = n
-
-
---
--- This holds "by construction":
---     Nf t ⇓ n → nf t ≡ n
---
-
-nf⇓→nf : ∀ {α Γ} (t : Tm Γ α) {n} (⇓n : Nf t ⇓ n) → nf t ≡ n
-nf⇓→nf t {n} (nf⇓ {u = u} ⇓u ⇓n)
-  with all-scv t id-env sce-id-env
-... | u′ , p′ , ⇓u′ , ≈u′
-  with all-quote u′ p′
-... | n′ , ⇓n′ , ≈n′
-  rewrite u′ ≡ u ∋ ⟦⟧⇓-det ⇓u′ ⇓u refl |
-          n′ ≡ n ∋ quote⇓-det ⇓n′ ⇓n refl
-  = refl
-
-
---
--- Stability: nf (embNf n) ≡ n .
---
-
--- Nf embNf n ⇓ n
-
-var≤∘suc : ∀ {α γ Β Γ} (η : Β ≤ γ ∷ Γ) (x : Var Γ α) →
-  var≤ η (suc x) ≡ var≤ (η ● wk) x
-var≤∘suc (≤weak η) x =
-  cong suc (var≤∘suc η x)
-var≤∘suc (≤lift η) x
-  rewrite η ● ≤id ≡ η ∋ η●≤id η
-  = refl
-
-⟦embVar⟧≤⇓ : ∀ {α Β Γ} (η : Β ≤ Γ) (x : Var Γ α) →
-  ⟦ embVar x ⟧ (env≤ η id-env) ⇓ ne (var (var≤ η x))
-⟦embVar⟧≤⇓ η zero = ø⇓
-⟦embVar⟧≤⇓ η (suc x)
-  rewrite env≤ η (env≤ wk id-env) ≡ env≤ (η ● wk) id-env ∋ env≤∘ η wk id-env |
-          var≤ η (suc x) ≡ var≤ (η ● wk) x ∋ var≤∘suc η x
-  = []⇓ ↑⇓ (⟦embVar⟧≤⇓ (η ● wk) x)
-
-⟦embVar⟧⇓ : ∀ {α Γ} (x : Var Γ α) →
-  ⟦ embVar x ⟧ id-env ⇓ ne (var x)
-⟦embVar⟧⇓ {α} {Γ} x
-  with ⟦embVar⟧≤⇓ ≤id x
-... | r
-  rewrite env≤ ≤id id-env ≡ id-env ∋ env≤∘≤id {Γ} {Γ} id-env |
-          var≤ ≤id x ≡ x ∋ var≤∘≤id x
-  = r
-
-mutual
-
-  stable⇓ : ∀ {α Γ} (n : Nf Γ α) → Nf embNf n ⇓ n
-  stable⇓ (ne ns)
-    with stable*⇓ ns
-  ... | us , ⇓us , ⇓ns
-    = nf⇓ ⇓us (⋆⇓ us ⇓ns)
-  stable⇓ (lam n)
-    with stable⇓ n
-  ... | nf⇓ ⇓u ⇓n
-    = nf⇓ ƛ⇓ (⇒⇓ (lam⇓ ⇓u) ⇓n)
-
-  stable*⇓ : ∀ {α Γ} (ns : NeNf Γ α) →
-    ∃ λ (us : NeVal Γ α) →
-      ⟦ embNeNf ns ⟧ id-env ⇓ ne us × Quote* us ⇓ ns
-  stable*⇓ (var x) =
-    var x , ⟦embVar⟧⇓ x , var⇓
-  stable*⇓ (app ns n) with stable*⇓ ns | stable⇓ n
-  ... | us , ⇓us , ⇓ns | nf⇓ {u = u} ⇓u ⇓n =
-    app us u , ∙⇓ ⇓us ⇓u ne⇓ , app⇓ ⇓ns ⇓n
-
-
--- nf (embNf n) ≡ n
-
-stable : ∀ {α Γ} (n : Nf Γ α) → nf (embNf n) ≡ n
-stable n =
-  nf⇓→nf (embNf n) (stable⇓ n)
-
-
---
--- Completeness: terms are convertible to their normal forms.
---
-
-complete : ∀ {α Γ} (t : Tm Γ α) → t ≈ embNf (nf t)
-
-complete t
-  with all-scv t id-env sce-id-env
-... | u , p , ⇓u , ≈u
-  with all-quote u p
-... | n , ⇓n , ≈n = begin
-  t
-    ≈⟨ ≈sym ≈id ⟩
-  t [ ı ]
-    ≈⟨ ≈cong[] ≈refl (≈≈sym embEnv∘id-env) ⟩
-  t [ embEnv id-env ]
-    ≈⟨ ≈u ⟩
-  embVal u
-    ≈⟨ ≈n ⟩
-  embNf n
-  ∎
-  where open ≈-Reasoning
--}

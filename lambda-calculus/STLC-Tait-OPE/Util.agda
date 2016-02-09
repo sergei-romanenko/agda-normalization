@@ -1,7 +1,5 @@
 module STLC-Tait-OPE.Util where
 
-open import Data.List as List public
-  using (List; []; _∷_)
 open import Data.Unit public
   using (⊤; tt)
 open import Data.Product as Prod public
@@ -10,8 +8,6 @@ open import Data.Product as Prod public
 open import Function public
 --import Function.Related as Related public
 
-open import Relation.Nullary public
-  using ()
 open import Relation.Binary.PropositionalEquality as P public
   renaming ([_] to ≡[_])
 

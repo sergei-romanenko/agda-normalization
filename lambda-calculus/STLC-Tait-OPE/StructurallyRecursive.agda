@@ -32,7 +32,7 @@ mutual
 
   ⟦ ı ⟧* ρ & ι⇓ =
     ρ , refl
-  ⟦ σ₁ ⊙ σ₂ ⟧* ρ & ⊙⇓ ⇓θ ⇓φ
+  ⟦ σ₁ ○ σ₂ ⟧* ρ & ○⇓ ⇓θ ⇓φ
     with ⟦ σ₂ ⟧* ρ & ⇓θ
   ... | θ , refl =
     ⟦ σ₁ ⟧* θ & ⇓φ
@@ -148,8 +148,8 @@ var≤∘suc (≤lift η) x
 ⟦embVar⟧⇓ {α} {Γ} x
   with ⟦embVar⟧≤⇓ ≤id x
 ... | r
-  rewrite env≤ ≤id id-env ≡ id-env ∋ env≤∘≤id {Γ} {Γ} id-env |
-          var≤ ≤id x ≡ x ∋ var≤∘≤id x
+  rewrite env≤ ≤id id-env ≡ id-env ∋ env≤-≤id {Γ} {Γ} id-env |
+          var≤ ≤id x ≡ x ∋ var≤-≤id x
   = r
 
 mutual
