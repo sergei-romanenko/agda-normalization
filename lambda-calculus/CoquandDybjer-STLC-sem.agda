@@ -139,7 +139,7 @@ postulate
     ⟪ ⟦ t ⟧ ρ ⟨∙⟩ ⟦ u ⟧ ρ ⟫ ≡ ⟪ ⟦ t ⟧ ρ ⟫ ∙ ⟪ ⟦ u ⟧ ρ ⟫
 
 postulate
-  complete≃ : ∀ {Γ Δ Σ} {σ₁ σ₂ : Sub Δ Σ} {ρ : VEnv Γ Δ} →
+  sound≃ : ∀ {Γ Δ Σ} {σ₁ σ₂ : Sub Δ Σ} {ρ : VEnv Γ Δ} →
     σ₁ ≃ σ₂ → ⟦ σ₁ ⟧* ρ ≡ ⟦ σ₂ ⟧* ρ
 
 mutual
@@ -195,55 +195,61 @@ mutual
     wkVal* {β} {Γ} Σ (u₁ [] u₂) ≡ u₁ Σ (wkVal* {α} {Γ} Σ u₂)
   wkVal*∘$ {α} {β} {Γ} Σ u₁ u₂ = {!!}
 
-complete : ∀ {Γ Δ α} {t₁ t₂ : Tm Δ α} →
+sound : ∀ {Γ Δ α} {t₁ t₂ : Tm Δ α} →
   t₁ ≈ t₂ → ∀ (ρ : VEnv Γ Δ) → ⟪ ⟦ t₁ ⟧ ρ ⟫ ≡ ⟪ ⟦ t₂ ⟧ ρ ⟫
-complete ≈refl ρ =
+sound ≈refl ρ =
   refl
-complete (≈sym t₁≈t₂) ρ =
-  sym (complete t₁≈t₂ ρ)
-complete (≈trans t₁≈t₂ t₂≈t₃) ρ =
-  trans (complete t₁≈t₂ ρ) (complete t₂≈t₃ ρ)
-complete (≈∙-cong {α} {β} {Γ} {t₁} {t₂} {u₁} {u₂} t₁≈t₂ u₁≈u₂) ρ = begin
+sound (≈sym t₁≈t₂) ρ =
+  sym (sound t₁≈t₂ ρ)
+sound (≈trans t₁≈t₂ t₂≈t₃) ρ =
+  trans (sound t₁≈t₂ ρ) (sound t₂≈t₃ ρ)
+sound (≈∙-cong {α} {β} {Γ} {t₁} {t₂} {u₁} {u₂} t₁≈t₂ u₁≈u₂) ρ = begin
   ⟪ ⟦ t₁ ⟧ ρ ⟨∙⟩ ⟦ u₁ ⟧ ρ ⟫
     ≡⟨ reify∘⟨∙⟩ t₁ u₁ ρ ⟩
   ⟪ ⟦ t₁ ⟧ ρ ⟫ ∙ ⟪ ⟦ u₁ ⟧ ρ ⟫
-    ≡⟨ cong₂ _∙_ (complete t₁≈t₂ ρ) (complete u₁≈u₂ ρ) ⟩
+    ≡⟨ cong₂ _∙_ (sound t₁≈t₂ ρ) (sound u₁≈u₂ ρ) ⟩
   ⟪ ⟦ t₂ ⟧ ρ ⟫ ∙ ⟪ ⟦ u₂ ⟧ ρ ⟫
     ≡⟨ sym $ reify∘⟨∙⟩ t₂ u₂ ρ ⟩
   ⟪ ⟦ t₂ ⟧ ρ ⟨∙⟩ ⟦ u₂ ⟧ ρ ⟫
   ∎
   where open ≡-Reasoning
-complete (≈[]-cong {α} {Γ} {Δ} {t₁} {t₂} {σ₁} {σ₂} t₁≈t₂ σ₁≃σ₂) ρ = begin
+sound (≈[]-cong {α} {Γ} {Δ} {t₁} {t₂} {σ₁} {σ₂} t₁≈t₂ σ₁≃σ₂) ρ = begin
     ⟪ ⟦ t₁ ⟧ (⟦ σ₁ ⟧* ρ) ⟫
-      ≡⟨ cong (λ ρ′ → ⟪ ⟦ t₁ ⟧ ρ′ ⟫) (complete≃ σ₁≃σ₂) ⟩
+      ≡⟨ cong (λ ρ′ → ⟪ ⟦ t₁ ⟧ ρ′ ⟫) (sound≃ σ₁≃σ₂) ⟩
     ⟪ ⟦ t₁ ⟧ (⟦ σ₂ ⟧* ρ) ⟫
-      ≡⟨ complete t₁≈t₂ (⟦ σ₂ ⟧* ρ) ⟩
+      ≡⟨ sound t₁≈t₂ (⟦ σ₂ ⟧* ρ) ⟩
     ⟪ ⟦ t₂ ⟧ (⟦ σ₂ ⟧* ρ) ⟫
   ∎
   where open ≡-Reasoning
-complete (≈ƛ-cong {α} {β} {Γ} {t₁} {t₂} t₁≈t₂) ρ =
-  cong ƛ_ (complete t₁≈t₂ (reflect (var vz) ∷ wkVEnv ρ))
-complete ≈proj ρ =
+sound (≈ƛ-cong {α} {β} {Γ} {t₁} {t₂} t₁≈t₂) ρ =
+  cong ƛ_ (sound t₁≈t₂ (reflect (var vz) ∷ wkVEnv ρ))
+sound ≈proj ρ =
   refl
-complete ≈id ρ =
+sound ≈id ρ =
   refl
-complete ≈comp ρ =
+sound ≈comp ρ =
   refl
-complete (≈lam {α} {β} {Γ} {Δ} {t} {σ}) ρ =
-  begin
+sound (≈lam {α} {β} {Γ} {Δ} {t} {σ}) ρ =
+  {-begin
     ƛ ⟪ ⟦ t ⟧ (reflect (var vz) ∷ wkVEnv (⟦ σ ⟧* ρ)) ⟫
       ≡⟨ cong (λ ρ′ → ƛ ⟪ ⟦ t ⟧ (reflect (var vz) ∷ ρ′) ⟫)
               (wkVEnv∘⟦⟧* (α ∷ []) σ ρ)  ⟩
     ƛ ⟪ ⟦ t ⟧ (reflect (var vz) ∷ ⟦ σ ⟧* (wkVEnv ρ)) ⟫
-  ∎
+  ∎-}
+  -- ƛ embNf (reify (⟦ t ⟧ (reflect (var vz) ∷ wkVEnv* (α ∷ []) (⟦ σ ⟧* ρ))))
+  -- ƛ embNf (reify (⟦ t ⟧ (reflect (var vz) ∷ ⟦ σ ⟧* (wkVEnv* (α ∷ []) ρ))))
+  {!!} {-begin
+  {!!}
+    ≡⟨ {!!} ⟩
+  {!!}-}
   where open ≡-Reasoning
-complete ≈app ρ =
+sound ≈app ρ =
   refl
 
 norm′ : ∀ {α Γ} (t : Tm Γ α) (ρ : VEnv Γ Γ) → Tm Γ α
 norm′ t ρ = ⟪ ⟦ t ⟧ ρ ⟫
 
-norm-complete : ∀ {Γ α} {t₁ t₂ : Tm Γ α} →
+norm-sound : ∀ {Γ α} {t₁ t₂ : Tm Γ α} →
   t₁ ≈ t₂ → norm t₁ ≡ norm t₂
-norm-complete t₁≈t₂ =
-  complete t₁≈t₂ idVEnv
+norm-sound t₁≈t₂ =
+  sound t₁≈t₂ idVEnv

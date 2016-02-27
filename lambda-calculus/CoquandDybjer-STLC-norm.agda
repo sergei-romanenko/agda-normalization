@@ -371,11 +371,14 @@ idVEnv : ∀ {Γ} → VEnv Γ Γ
 idVEnv {[]} = []
 idVEnv {α ∷ Γ} = reflect (var vz) ∷ wkVEnv idVEnv
 
+nf : ∀ {α Γ} (t : Tm Γ α) → Nf Γ α
+nf t = reify (⟦ t ⟧ idVEnv)
+
 ⟪_⟫ : ∀ {α Γ} (u : Val Γ α) → Tm Γ α
 ⟪ u ⟫ = embNf (reify u)
 
 norm : ∀ {α Γ} (t : Tm Γ α) → Tm Γ α
-norm t = ⟪ ⟦ t ⟧ idVEnv ⟫
+norm = embNf ∘ nf
 
 --
 -- Examples.
