@@ -2,6 +2,7 @@ module STLC-Delay.Utils where
 
 open import Agda.Primitive public
 open import Size public
+  hiding (↑_)
 open import Category.Monad public
   using (RawMonad; module RawMonad)
 

@@ -46,5 +46,9 @@ mutual
   eta : ∀ {α β Γ i} (u : Val Γ (α ⇒ β)) → ∞Delay i (Nf (α ∷ Γ) β)
   force (eta u) = apply (val≤ wk u) (ne (var zero)) >>= readback
 
-nf : ∀ {α Γ} (t : Tm Γ α) → Delay ∞ (Nf Γ α)
-nf {α} {Γ} t = eval t (id-env Γ) >>= readback
+--
+-- ∀ {α Γ} (t : Tm Γ α) → Delay ∞ (Nf Γ α)
+--
+
+nf? : ∀ {α Γ} (t : Tm Γ α) → Delay ∞ (Nf Γ α)
+nf? {α} {Γ} t = eval t (id-env Γ) >>= readback

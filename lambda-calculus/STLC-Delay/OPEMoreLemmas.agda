@@ -3,6 +3,7 @@ module STLC-Delay.OPEMoreLemmas where
 open import STLC-Delay.Utils
 open import STLC-Delay.DelayMonad
 open import STLC-Delay.Syntax
+open import STLC-Delay.Conversion
 open import STLC-Delay.OPE
 open import STLC-Delay.OPELemmas
 open import STLC-Delay.Normaliser
@@ -275,6 +276,8 @@ mutual
     where open ~-Reasoning
 
 
+-- readback u ⇓ n → readback (val≤ η u) ⇓ nf≤ η n
+
 readback≤⇓ : ∀ {α Β Γ} (η : Β ≤ Γ) (u : Val Γ α)
   {n} (⇓n : readback u ⇓ n) →
   readback (val≤ η u) ⇓ nf≤ η n
@@ -286,3 +289,40 @@ readback*≤⇓ : ∀ {α Β Γ} (η : Β ≤ Γ) (us : NeVal Γ α)
   readback* (neVal≤ η us) ⇓ neNf≤ η ns
 readback*≤⇓ η us ⇓ns =
   subst~⇓ (readback*∘≤ η us) (map⇓ (neNf≤ η) ⇓ns)
+
+
+-- embNeVal us ≈ embNeNf ns) → embNeVal (neVal≤ η us) ≈ embNeNf (neNf≤ η ns)
+
+embNe≤≈ : ∀ {α Β Γ} (η : Β ≤ Γ) (us : NeVal Γ α) (ns : NeNf Γ α) →
+  (p : embNeVal us ≈ embNeNf ns) →
+     embNeVal (neVal≤ η us) ≈ embNeNf (neNf≤ η ns)
+embNe≤≈ η us ns p = begin
+  embNeVal (neVal≤ η us)
+    ≈⟨ embNeVal∘≤ η us ⟩
+  embNeVal us [ ≤2sub η ]
+    ≈⟨ ≈cong[] p ≈≈refl ⟩
+  embNeNf ns [ ≤2sub η ]
+    ≈⟨ ≈sym (embNeNf∘≤ η ns) ⟩
+  embNeNf (neNf≤ η ns)
+  ∎
+  where open ≈-Reasoning
+
+
+--
+-- embVal (val≤ wk u) ≈ embVal u [ ↑ ]
+--
+
+embVal∘wk : ∀ {α γ Γ} (u : Val Γ α) →
+  embVal (val≤ wk {α} u) ≈ embVal u [ ↑ {γ} ]
+embVal∘wk u = begin
+  embVal (val≤ wk u)
+    ≡⟨⟩
+  embVal (val≤ wk u)
+    ≈⟨ embVal∘≤ wk u ⟩
+  embVal u [ ≤2sub ≤id ○ ↑ ]
+    ≈⟨ ≈cong[] ≈refl (≈≈cong○ ı≈≈≤2sub-≤id ≈≈refl) ⟩
+  embVal u [ ı ○ ↑ ]
+    ≈⟨ ≈cong[] ≈refl ≈≈idl ⟩
+  embVal u [ ↑ ]
+  ∎
+  where open ≈-Reasoning
