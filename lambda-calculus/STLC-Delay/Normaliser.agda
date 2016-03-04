@@ -51,4 +51,4 @@ mutual
 --
 
 nf? : ∀ {α Γ} (t : Tm Γ α) → Delay ∞ (Nf Γ α)
-nf? {α} {Γ} t = eval t (id-env Γ) >>= readback
+nf? t = eval t id-env >>= readback

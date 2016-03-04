@@ -70,7 +70,7 @@ mutual
   ... | u , p , ⇓u , ≈u | v , q , ⇓v , ≈v
     with p ≤id v q
   ... | uv , pq , ⇓uv , ≈uv
-    rewrite val≤-≤id u
+    rewrite val≤ ≤id u ≡ u ∋ val≤-≤id u
     = uv , pq , bind2⇓ apply ⇓u ⇓v ⇓uv ,
       (begin
         (f ∙ a) [ embEnv ρ ]

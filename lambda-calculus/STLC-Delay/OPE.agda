@@ -68,9 +68,9 @@ mutual
 -- Identity environments.
 --
 
-id-env : ∀ Γ → Env Γ Γ
-id-env [] = []
-id-env (α ∷ Γ) = ne (var zero) ∷ env≤ wk (id-env Γ)
+id-env : ∀ {Γ} → Env Γ Γ
+id-env {[]} = []
+id-env {α ∷ Γ} = ne (var zero) ∷ env≤ wk (id-env {Γ})
 
 --
 -- Composing OPEs.

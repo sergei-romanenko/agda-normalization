@@ -70,20 +70,20 @@ scv-var x = reflect (var x) (var x) now⇓ ≈refl
 
 -- SCE (id-env Γ)
 
-sce-id-env : ∀ Γ → SCE (id-env Γ)
-sce-id-env [] = []
-sce-id-env (γ ∷ Γ) = scv-var zero ∷ sce≤ wk (id-env Γ) (sce-id-env Γ)
+sce-id-env : ∀ {Γ} → SCE (id-env {Γ})
+sce-id-env {[]} = []
+sce-id-env {γ ∷ Γ} = scv-var zero ∷ sce≤ wk (id-env {Γ}) (sce-id-env {Γ})
 
 --
 -- Now we get a normalizer that always terminates.
 --
 
 nf : ∀ {α Γ} (t : Tm Γ α) → Nf Γ α
-nf {α} {Γ} t
-  with all-scv t (id-env Γ) (sce-id-env Γ)
+nf t
+  with all-scv t id-env sce-id-env
 ... | u , p , ⇓u , ≈u
   with reify u p
-... | n , ⇓n
+... | n , ⇓n , ≈n
   = n
 
 --
@@ -92,8 +92,8 @@ nf {α} {Γ} t
 --
 
 nf⇓→nf : ∀ {α Γ} (t : Tm Γ α) {n} (⇓n : nf? t ⇓ n) → nf t ≡ n
-nf⇓→nf {α} {Γ} t ⇓n
-  with all-scv t (id-env Γ) (sce-id-env Γ)
+nf⇓→nf t ⇓n
+  with all-scv t id-env sce-id-env
 ... | u′ , p′ , ⇓u′ , ≈u′
   with reify u′ p′
 ... | n′ , ⇓n′ , ≈n′

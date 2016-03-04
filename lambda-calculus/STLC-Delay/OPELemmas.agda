@@ -325,16 +325,16 @@ mutual
 -- embEnv id-env ≈≈ ı
 --
 
-embEnv∘id-env : ∀ {Γ} → embEnv (id-env Γ) ≈≈ ı
+embEnv∘id-env : ∀ {Γ} → embEnv (id-env {Γ}) ≈≈ ı
 embEnv∘id-env {[]} = ≈≈refl
 embEnv∘id-env {γ ∷ Γ} = begin
-  ø ∷ embEnv (env≤ wk (id-env Γ))
+  ø ∷ embEnv (env≤ wk id-env)
     ≡⟨⟩
-  ø ∷ embEnv (env≤ wk (id-env Γ))
-    ≈⟨ ≈≈cong∷ ≈refl (embEnv∘≤ wk (id-env Γ)) ⟩
-  ø ∷ embEnv (id-env Γ) ○ (≤2sub ≤id ○ ↑)
+  ø ∷ embEnv (env≤ wk id-env)
+    ≈⟨ ≈≈cong∷ ≈refl (embEnv∘≤ wk id-env) ⟩
+  ø ∷ embEnv id-env ○ (≤2sub ≤id ○ ↑)
     ≈⟨ ≈≈cong∷ ≈refl (≈≈cong○ ≈≈refl (≈≈cong○ ı≈≈≤2sub-≤id ≈≈refl)) ⟩
-  ø ∷ embEnv (id-env Γ) ○ (ı ○ ↑)
+  ø ∷ embEnv id-env ○ (ı ○ ↑)
     ≈⟨ ≈≈cong∷ ≈refl (≈≈cong○ embEnv∘id-env ≈≈idl) ⟩
   ø ∷ (ı ○ ↑)
     ≈⟨ ≈≈sym ≈≈id∷ ⟩
