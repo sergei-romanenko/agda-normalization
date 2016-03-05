@@ -275,6 +275,21 @@ mutual
     ∎
     where open ~-Reasoning
 
+-- eval t ρ ⇓ u)→ eval t (env≤ η ρ) ⇓ val≤ η u
+
+eval⇓≤ : ∀ {α Β Γ Δ} (η : Β ≤ Γ) (t : Tm Δ α) (ρ : Env Γ Δ)
+  {u} (⇓u : eval t ρ ⇓ u) →
+  eval t (env≤ η ρ) ⇓ val≤ η u
+eval⇓≤ η t ρ ⇓u =
+  subst~⇓ (eval≤ η t ρ) (map⇓ (val≤ η) ⇓u)
+
+-- eval* σ ρ ⇓ θ → eval* σ (env≤ η ρ) ⇓ env≤ η θ
+
+eval*⇓≤ : ∀ {Β Γ Δ Δ′} (η : Β ≤ Γ) (σ : Sub Δ′ Δ) (ρ : Env Γ Δ′)
+  {θ} (⇓θ : eval* σ ρ ⇓ θ) →
+  eval* σ (env≤ η ρ) ⇓ env≤ η θ
+eval*⇓≤ η σ ρ ⇓θ =
+  subst~⇓ (eval*≤ η σ ρ) (map⇓ (env≤ η) ⇓θ)
 
 -- readback u ⇓ n → readback (val≤ η u) ⇓ nf≤ η n
 

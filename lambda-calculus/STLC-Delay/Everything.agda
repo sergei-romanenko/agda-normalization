@@ -11,3 +11,5 @@ import STLC-Delay.OPEMoreLemmas
 import STLC-Delay.StrongComputability
 import STLC-Delay.TerminatingNormalizer
 import STLC-Delay.StabilityAndCompleteness
+import STLC-Delay.StrongConvertibility
+import STLC-Delay.Soundness
