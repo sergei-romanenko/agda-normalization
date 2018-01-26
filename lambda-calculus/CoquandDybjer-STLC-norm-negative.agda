@@ -26,8 +26,7 @@ module CoquandDybjer-STLC-norm-negative where
 open import Data.List
   hiding ([_])
 open import Data.List.Any
-  using (Any; here; there; module Membership-≡)
---open import Data.Nat
+  using (Any; here; there)
 open import Data.Empty
 open import Data.Unit
 open import Data.Product
@@ -42,8 +41,6 @@ open import Relation.Binary
   using (Setoid)
 
 import Relation.Binary.EqReasoning as EqReasoning
-
-open Membership-≡
 
 --
 -- Types.

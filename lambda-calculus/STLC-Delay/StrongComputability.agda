@@ -6,7 +6,7 @@ open import STLC-Delay.Syntax
 open import STLC-Delay.Conversion
 open import STLC-Delay.OPE
 open import STLC-Delay.OPELemmas
-open import STLC-Delay.Normaliser
+open import STLC-Delay.Normalizer
 open import STLC-Delay.OPEMoreLemmas
 
 --

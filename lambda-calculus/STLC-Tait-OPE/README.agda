@@ -31,7 +31,7 @@
     http://arxiv.org/abs/1406.2059v1
 -}
 
-module STLC-Tait-OPE.Everything where
+module STLC-Tait-OPE.README where
 
 import STLC-Tait-OPE.Util
 import STLC-Tait-OPE.Syntax

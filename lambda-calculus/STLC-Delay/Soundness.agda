@@ -6,7 +6,7 @@ open import STLC-Delay.Syntax
 open import STLC-Delay.Conversion
 open import STLC-Delay.OPE
 open import STLC-Delay.OPELemmas
-open import STLC-Delay.Normaliser
+open import STLC-Delay.Normalizer
 open import STLC-Delay.OPEMoreLemmas
 open import STLC-Delay.StrongComputability
 open import STLC-Delay.TerminatingNormalizer
@@ -14,7 +14,7 @@ open import STLC-Delay.StrongConvertibility
 
 --
 -- Soundness: t₁ ≈ t₂ → nf t₁ ≡ nf t₂
--- (Normalisation takes convertible terms to identical normal forms.)
+-- (Normalization takes convertible terms to identical normal forms.)
 --
 
 --

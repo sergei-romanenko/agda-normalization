@@ -18,7 +18,7 @@ DOI=10.1017/S0960129596002150 <http://dx.doi.org/10.1017/S0960129596002150>
 J. Funct. Program. 19, 3-4 (July 2009), 311-333.
 DOI=10.1017/S0956796809007278 <http://dx.doi.org/10.1017/S0956796809007278>
 
-## Big-step normalisation (using OPEs and the Bove-Capretta technique)
+## Big-step normalization (using OPEs and the Bove-Capretta technique)
 
 * STLC-Tait-OPE.Util
 * STLC-Tait-OPE.Syntax

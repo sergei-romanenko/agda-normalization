@@ -26,8 +26,7 @@ open import Algebra using (module Monoid)
 open import Data.List as List
   using (List; []; _∷_; _++_)
 open import Data.List.Any
-  using (Any; here; there; module Membership-≡)
---open import Data.Nat
+  using (Any; here; there)
 open import Data.Empty
 open import Data.Unit
 open import Data.Product
@@ -42,8 +41,6 @@ open import Relation.Binary
   using (Setoid)
 
 import Relation.Binary.EqReasoning as EqReasoning
-
-open Membership-≡
 
 --
 -- Types.
@@ -364,7 +361,7 @@ mutual
   reify {α ⇒ β} f = lam (reify (f (α ∷ []) (reflect (var vz))))
 
 --
--- Normalisation.
+-- Normalization.
 --
 
 idVEnv : ∀ {Γ} → VEnv Γ Γ

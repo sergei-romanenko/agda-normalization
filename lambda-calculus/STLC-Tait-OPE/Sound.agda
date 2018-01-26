@@ -7,7 +7,7 @@ open import STLC-Tait-OPE.StructurallyRecursive
 
 --
 -- Soundness: t₁ ≈ t₂ → nf t₁ ≡ nf t₂
--- (Normalisation takes convertible terms to identical normal forms.)
+-- (Normalization takes convertible terms to identical normal forms.)
 --
 
 infix 4 _~_ _~~_

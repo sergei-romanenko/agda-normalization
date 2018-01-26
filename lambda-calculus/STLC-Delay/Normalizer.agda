@@ -1,4 +1,4 @@
-module STLC-Delay.Normaliser where
+module STLC-Delay.Normalizer where
 
 open import STLC-Delay.Utils
 open import STLC-Delay.DelayMonad

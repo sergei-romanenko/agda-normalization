@@ -51,8 +51,8 @@ mutual
   lam t ρ ⟨∙⟩ u & lam⇓ ⇓w =
     ⟦ t ⟧ (u ∷ ρ) & ⇓w
 
-⟦⟧-III : ⟦ III ⟧ id-env & ∙⇓ ƛ⇓ (∙⇓ ƛ⇓ ƛ⇓ (lam⇓ ø⇓)) (lam⇓ ø⇓) ≡
-  lam ø [] , refl
+⟦⟧-III : (⟦ III ⟧ id-env & ∙⇓ ƛ⇓ (∙⇓ ƛ⇓ ƛ⇓ (lam⇓ ø⇓)) (lam⇓ ø⇓)) ≡
+  (lam ø [] , refl)
 ⟦⟧-III = refl
 
 mutual

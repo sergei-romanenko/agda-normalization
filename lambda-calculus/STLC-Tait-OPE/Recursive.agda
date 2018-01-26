@@ -132,7 +132,7 @@ mutual
 
 --
 -- Soundness: t₁ ≈ t₂ → nf t₁ ≡ nf t₂
--- (Normalisation takes convertible terms to identical normal forms.)
+-- (Normalization takes convertible terms to identical normal forms.)
 --
 
 {-# TERMINATING #-}

@@ -24,7 +24,7 @@ module STLC-Tait where
 open import Data.List as List
   hiding ([_])
 open import Data.List.Any
-  using (Any; here; there; module Membership-≡)
+  using (Any; here; there)
 open import Data.List.Properties
   using ()
 open import Data.Empty
@@ -32,7 +32,6 @@ open import Data.Unit
 open import Data.Product
 
 open import Function
---import Function.Related as Related
 
 open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality as P
@@ -42,8 +41,6 @@ open import Relation.Binary
   using (Setoid)
 
 import Relation.Binary.EqReasoning as EqReasoning
-
-open Membership-≡
 
 open import Algebra
   using (module Monoid)

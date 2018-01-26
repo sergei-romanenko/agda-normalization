@@ -6,7 +6,7 @@ open import STLC-Delay.Syntax
 open import STLC-Delay.Conversion
 open import STLC-Delay.OPE
 open import STLC-Delay.OPELemmas
-open import STLC-Delay.Normaliser
+open import STLC-Delay.Normalizer
 
 mutual
 
@@ -148,7 +148,7 @@ mutual
 mutual
 
   readback∘≤ : ∀ {α Β Γ i} (η : Β ≤ Γ) (u : Val Γ α) →
-    nf≤ η <$> readback u ~⟨ i ⟩~ readback (val≤ η u)
+    (nf≤ η <$> readback u) ~⟨ i ⟩~ readback (val≤ η u)
   readback∘≤ {⋆} η (ne us) = begin
     (nf≤ η <$> readback (ne us))
       ≡⟨⟩
@@ -188,7 +188,7 @@ mutual
     where open ∞~-Reasoning
 
   readback*∘≤ : ∀ {α Β Γ i} (η : Β ≤ Γ) (us : NeVal Γ α) →
-    neNf≤ η <$> readback* us ~⟨ i ⟩~ readback* (neVal≤ η us)
+    (neNf≤ η <$> readback* us) ~⟨ i ⟩~ readback* (neVal≤ η us)
   readback*∘≤ η (var x) = ~now (var (var≤ η x))
   readback*∘≤ η (app us u) = begin
     (neNf≤ η <$> readback* (app us u))

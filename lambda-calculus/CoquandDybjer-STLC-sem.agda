@@ -26,7 +26,7 @@ open import Algebra using (module Monoid)
 open import Data.List as List
   using (List; []; _∷_; _++_)
 open import Data.List.Any
-  using (Any; here; there; module Membership-≡)
+  using (Any; here; there)
 --open import Data.Nat
 open import Data.Empty
 open import Data.Unit
@@ -42,8 +42,6 @@ open import Relation.Binary
   using (Setoid)
 
 import Relation.Binary.EqReasoning as EqReasoning
-
-open Membership-≡
 
 open import CoquandDybjer-STLC-norm
 
